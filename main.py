@@ -93,24 +93,72 @@ def vis(test_accs, confusion_mtxes, labels, sampler, figsize=(20, 8)):
     sns.heatmap(cm, annot=annot, fmt='', cmap="Blues")
     plt.savefig('./results_' + str(sampler) + '_sampler.png')
 
-class Net(torch.nn.Module):
-    def __init__(self):
-        super(Net, self).__init__()
-        self.conv1 = torch.nn.Conv2d(1, 10, kernel_size=5)
-        self.conv2 = torch.nn.Conv2d(10, 20, kernel_size=5)
-        self.conv2_drop = torch.nn.Dropout2d()
-        self.fc1 = torch.nn.Linear(320, 50)
-        self.fc2 = torch.nn.Linear(50, 10)
+# class Net(torch.nn.Module):
+#     def __init__(self):
+#         super(Net, self).__init__()
+#         self.conv1 = torch.nn.Conv2d(1, 10, kernel_size=5)
+#         self.conv2 = torch.nn.Conv2d(10, 20, kernel_size=5)
+#         self.conv2_drop = torch.nn.Dropout2d()
+#         self.fc1 = torch.nn.Linear(320, 50)
+#         self.fc2 = torch.nn.Linear(50, 10)
 
-    def forward(self, x):
-        x = F.relu(F.max_pool2d(self.conv1(x), 2))
-        x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(x)), 2))
-        x = x.view(-1, 320)
-        x = F.relu(self.fc1(x))
-        x = F.dropout(x, training=self.training)
-        x = self.fc2(x)
-        return x
-    
+#     def forward(self, x):
+#         x = F.relu(F.max_pool2d(self.conv1(x), 2))
+#         x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(x)), 2))
+#         x = x.view(-1, 320)
+#         x = F.relu(self.fc1(x))
+#         x = F.dropout(x, training=self.training)
+#         x = self.fc2(x)
+#         return x
+
+
+class View(nn.Module):
+    def __init__(self,o):
+        super().__init__()
+        self.o = o
+
+    def forward(self,x):
+        return x.view(-1, self.o)
+
+class Net(torch.nn.Module):
+    def __init__(self, opt, c1=96, c2= 192):
+        super(allcnn, self).__init__()
+        self.name = 'allcnn'
+
+        if opt['dataset'] == 'cifar10' or opt['dataset'] == 'cifar100':
+            in_ch = 3
+            out_ch = 8
+        elif opt['dataset'] == 'mnist':
+            in_ch = 1
+            out_ch = 7
+        if (not 'l2' in opt) or opt['l2'] < 0:
+            opt['l2'] = 1e-3
+
+        if (not 'd' in opt) or opt['d'] < 0:
+                opt['d'] = 0.5
+
+        def convbn(ci,co,ksz,s=1,pz=0):
+            return nn.Sequential(
+                nn.Conv2d(ci,co,ksz,stride=s,padding=pz),
+                nn.BatchNorm2d(co),
+                nn.ReLU(True))
+
+        self.m = nn.Sequential(
+            nn.Dropout(0.2),
+            convbn(in_ch,c1,3,1,1),
+            convbn(c1,c1,3,1,1),
+            convbn(c1,c1,3,2,1),
+            nn.Dropout(opt['d']),
+            convbn(c1,c2,3,1,1),
+            convbn(c2,c2,3,1,1),
+            convbn(c2,c2,3,2,1),
+            nn.Dropout(opt['d']),
+            convbn(c2,c2,3,1,1),
+            convbn(c2,c2,3,1,1),
+            convbn(c2,num_classes,1,1),
+            nn.AvgPool2d(out_ch),
+            View(num_classes))    
+
 def train(args, model, device, train_loader, weights_loader, optimizer, loss_fun, epoch):
     model.train()
     n_iters = int(len(train_loader) * args.freq)
@@ -203,7 +251,9 @@ def main():
         imbalanced_train_loader = torch.utils.data.DataLoader(imbalanced_train_dataset, batch_size=args.batch_size, **kwargs)
     
     # define model
-    model = Net().to(device)
+    opt = dict()
+    opt['dataset'] = 'mnist'
+    model = Net(opt).to(device)
     loss = nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
     # main loop
