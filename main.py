@@ -117,7 +117,8 @@ def train(args, model, device, train_loader, weights_loader, optimizer, loss_fun
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
         output = model(data)
-        if batch_idx % 50 == 0:
+        if batch_idx % 30 == 0:
+            print('recomputing weights')
             if args.sampler == 'our':
                 new_weights = compute_weights(model, weights_loader, device)
                 train_loader.sampler.weights = new_weights
