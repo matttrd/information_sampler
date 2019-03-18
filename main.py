@@ -32,12 +32,12 @@ def compute_weights(model, weights_loader, device):
             data, target = data.to(device), target.to(device)
             output = model(data)
             output = output.squeeze()
-            softmax = torch.exp(output)
-            softmax = softmax.cpu().numpy()
+            softmax = F.softmax(output, dim=1).cpu().numpy()
             row = np.arange(len(target))
             col = target.cpu().numpy()
             weights.append(np.ones_like(softmax[row, col]) - softmax[row, col])
             target_list.append(target)
+
     targets_tensor = torch.cat(target_list)
     weights = np.hstack(weights).squeeze()
     weights = torch.FloatTensor(weights)
@@ -109,7 +109,7 @@ class Net(torch.nn.Module):
         x = F.relu(self.fc1(x))
         x = F.dropout(x, training=self.training)
         x = self.fc2(x)
-        return F.log_softmax(x, dim=1)
+        return x
     
 def train(args, model, device, train_loader, optimizer, epoch):
     model.train()
