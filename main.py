@@ -122,7 +122,7 @@ class View(nn.Module):
 
 class Net(torch.nn.Module):
     def __init__(self, opt, c1=96, c2= 192):
-        super(allcnn, self).__init__()
+        super().__init__()
         self.name = 'allcnn'
 
         if opt['dataset'] == 'cifar10' or opt['dataset'] == 'cifar100':
