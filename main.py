@@ -111,15 +111,16 @@ class Net(torch.nn.Module):
         x = self.fc2(x)
         return x
     
-def train(args, model, device, train_loader, optimizer, loss_fun, epoch):
+def train(args, model, device, train_loader, weights_loader, optimizer, loss_fun, epoch):
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
         output = model(data)
-        #if args.sampler == 'our':
-        #     new_weights = compute_weights(model, weights_loader, device)
-        #     imbalanced_train_loader.sampler.weights = new_weights
+        if batch_idx % 10 == 0:
+            if args.sampler == 'our':
+                new_weights = compute_weights(model, weights_loader, device)
+                train_loader.sampler.weights = new_weights
         loss = loss_fun(output, target)
         loss.backward()
         optimizer.step()
@@ -208,7 +209,7 @@ def main():
         # if args.sampler == 'our':
         #     new_weights = compute_weights(model, weights_loader, device)
         #     imbalanced_train_loader.sampler.weights = new_weights
-        train(args, model, device, imbalanced_train_loader, optimizer, loss, epoch)
+        train(args, model, device, imbalanced_train_loader, weights_loader, optimizer, loss, epoch)
         test_acc, confusion_mtx = test(args, model, device, test_loader)
         test_accs.append(test_acc)
         confusion_mtxes.append(confusion_mtx)
