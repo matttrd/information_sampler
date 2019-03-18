@@ -113,11 +113,12 @@ class Net(torch.nn.Module):
     
 def train(args, model, device, train_loader, weights_loader, optimizer, loss_fun, epoch):
     model.train()
+    n_iters = int(len(train_loader) * args.freq) // args.batch_size
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
         output = model(data)
-        if batch_idx % 30 == 0:
+        if batch_idx % n_iters == 0:
             print('recomputing weights')
             if args.sampler == 'our':
                 new_weights = compute_weights(model, weights_loader, device)
@@ -149,6 +150,8 @@ def main():
                         help='input batch size for training (default: 64)')
     parser.add_argument('--sampler', type=str, default='our', 
                         help='sampler for training (default: "our")')
+    parser.add_argument('--freq', type=int, default=0.1, 
+                        help='weights sampler frequency')
     parser.add_argument('--topk', type=int, default=500, metavar='N',
                         help='number of weight to analyse (default 500)')                        
     parser.add_argument('--test_batch_size', type=int, default=1000, metavar='N',
