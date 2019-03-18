@@ -150,7 +150,7 @@ def main():
                         help='input batch size for training (default: 64)')
     parser.add_argument('--sampler', type=str, default='our', 
                         help='sampler for training (default: "our")')
-    parser.add_argument('--freq', type=int, default=0.1, 
+    parser.add_argument('--freq', type=float, default=0.1, 
                         help='weights sampler frequency')
     parser.add_argument('--topk', type=int, default=500, metavar='N',
                         help='number of weight to analyse (default 500)')                        
