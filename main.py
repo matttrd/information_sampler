@@ -113,7 +113,7 @@ class Net(torch.nn.Module):
     
 def train(args, model, device, train_loader, weights_loader, optimizer, loss_fun, epoch):
     model.train()
-    n_iters = int(len(train_loader) * args.freq) // args.batch_size
+    n_iters = int(len(train_loader) * args.freq)
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
