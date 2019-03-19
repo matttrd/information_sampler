@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 parser = argparse.ArgumentParser(description='Imbalanced dataset creator')
 parser.add_argument('--batch-size', type=int, default=64, metavar='N',
                     help='input batch size for training (default: 64)')                        
+parser.add_argument('--dataset', type=str, default='mnist', help='dataset')                        
 parser.add_argument('--test-batch-size', type=int, default=1000, metavar='N',
                     help='input batch size for testing (default: 1000)')
 parser.add_argument('--no-cuda', action='store_true', default=False,
@@ -24,29 +25,51 @@ kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
 
 
 # original dataset
-original_train_dataset = datasets.MNIST('./data', train=True, download=True,
+if args.dataset == 'cifar10':
+    original_train_dataset = datasets.CIFAR10('./data', train=True, download=True,
+                                        transform=transforms.Compose([
+                                            transforms.ToTensor(),
+                                            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+                                            ]))
+    #original_train_dataset.train_labels = torch.tensor(original_train_dataset.train_labels)
+    #original_train_dataset.train_data = torch.tensor(original_train_dataset.train_data)
+    
+    test_loader = torch.utils.data.DataLoader(
+                        datasets.CIFAR10('./data', train=False, 
+                                       transform=transforms.Compose([
+                                           transforms.ToTensor(),
+                                           transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+                                           ])),
+                        batch_size=args.test_batch_size, 
+                        shuffle=True, **kwargs)
+else:
+    original_train_dataset = datasets.MNIST('./data', train=True, download=True,
                                         transform=transforms.Compose([
                                             transforms.ToTensor(),
                                             transforms.Normalize((0.1307,), (0.3081,))
                                             ]))
 
+    test_loader = torch.utils.data.DataLoader(
+                        datasets.MNIST('./data', train=False, 
+                                       transform=transforms.Compose([
+                                           transforms.ToTensor(),
+                                           transforms.Normalize((0.1307,), (0.3081,))
+                                           ])),
+                        batch_size=args.test_batch_size, 
+                        shuffle=True, **kwargs)
+
 original_train_loader = torch.utils.data.DataLoader(
                             original_train_dataset, 
                             batch_size=args.batch_size, 
                             shuffle=True, **kwargs)
-
-test_loader = torch.utils.data.DataLoader(
-                    datasets.MNIST('./data', train=False, 
-                                   transform=transforms.Compose([
-                                       transforms.ToTensor(),
-                                       transforms.Normalize((0.1307,), (0.3081,))
-                                       ])),
-                    batch_size=args.test_batch_size, 
-                    shuffle=True, **kwargs)
-
+    
 # imbalanced dataset
 torch.manual_seed(args.seed)
-num_classes = len(original_train_dataset.train_labels.unique())
+try:
+	num_classes = len(original_train_dataset.train_labels.unique())
+except Exception:
+	num_classes = len(np.unique(original_train_dataset.train_labels))
+
 class_labels = range(num_classes)
 sample_probs = torch.rand(num_classes)
 idx_to_del = [i for i, label in enumerate(original_train_loader.dataset.train_labels) 
@@ -55,7 +78,7 @@ imbalanced_train_dataset = copy.deepcopy(original_train_dataset)
 imbalanced_train_dataset.train_labels = np.delete(original_train_loader.dataset.train_labels, idx_to_del, axis=0)
 imbalanced_train_dataset.train_data = np.delete(original_train_loader.dataset.train_data, idx_to_del, axis=0)
 
-data = {'imbalanced_train_dataset': imbalanced_train_dataset, 'test_loader': test_loader, 'num_classes': num_classes}
+data = {'imbalanced_train_dataset': imbalanced_train_dataset, 'test_loader': test_loader, 'num_classes': num_classes, 'name': args.dataset}
 with open('./imbalanced_dataset.pickle', 'wb') as handle:
     pkl.dump(data, handle, protocol=pkl.HIGHEST_PROTOCOL)
 

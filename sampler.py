@@ -38,7 +38,8 @@ class ImbalancedDatasetSampler(torch.utils.data.sampler.Sampler):
 
     def _get_label(self, dataset, idx):
         dataset_type = type(dataset)
-        if dataset_type is torchvision.datasets.MNIST:
+        if dataset_type is torchvision.datasets.MNIST or \
+        		dataset_type is torchvision.datasets.CIFAR10:
             return dataset.train_labels[idx].item()
         elif dataset_type is torchvision.datasets.ImageFolder:
             return dataset.imgs[idx][1]

@@ -94,7 +94,7 @@ def vis(test_accs, confusion_mtxes, labels, sampler, figsize=(20, 8)):
     plt.savefig('./results_' + str(sampler) + '_sampler.png')
 
 # class Net(torch.nn.Module):
-#     def __init__(self):
+#     def __init__(self,opt):
 #         super(Net, self).__init__()
 #         self.conv1 = torch.nn.Conv2d(1, 10, kernel_size=5)
 #         self.conv2 = torch.nn.Conv2d(10, 20, kernel_size=5)
@@ -117,14 +117,14 @@ class View(nn.Module):
         super().__init__()
         self.o = o
 
-    def forward(self,x):
+    def forward(self, x):
         return x.view(-1, self.o)
 
 class Net(torch.nn.Module):
     def __init__(self, opt, c1=96, c2= 192):
         super().__init__()
         self.name = 'allcnn'
-
+        num_classes = 10
         if opt['dataset'] == 'cifar10' or opt['dataset'] == 'cifar100':
             in_ch = 3
             out_ch = 8
@@ -159,6 +159,9 @@ class Net(torch.nn.Module):
             nn.AvgPool2d(out_ch),
             View(num_classes))    
 
+    def forward(self, x):
+        return self.m(x)
+
 def train(args, model, device, train_loader, weights_loader, optimizer, loss_fun, epoch):
     model.train()
     n_iters = int(len(train_loader) * args.freq)
@@ -166,11 +169,11 @@ def train(args, model, device, train_loader, weights_loader, optimizer, loss_fun
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
         output = model(data)
-        if batch_idx % n_iters == 0:
-            print('recomputing weights')
-            if args.sampler == 'our':
-                new_weights = compute_weights(model, weights_loader, device)
-                train_loader.sampler.weights = new_weights
+        # if batch_idx % n_iters == 0:
+        #     print('recomputing weights')
+        #     if args.sampler == 'our':
+        #         new_weights = compute_weights(model, weights_loader, device)
+        #         train_loader.sampler.weights = new_weights
         loss = loss_fun(output, target)
         loss.backward()
         optimizer.step()
@@ -252,7 +255,7 @@ def main():
     
     # define model
     opt = dict()
-    opt['dataset'] = 'mnist'
+    opt['dataset'] = data['name']
     model = Net(opt).to(device)
     loss = nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
@@ -260,9 +263,9 @@ def main():
     test_accs, confusion_mtxes = [], []    
     for epoch in range(1, args.epochs + 1):
         print('Train Epoch: {}'.format(epoch))
-        # if args.sampler == 'our':
-        #     new_weights = compute_weights(model, weights_loader, device)
-        #     imbalanced_train_loader.sampler.weights = new_weights
+        if args.sampler == 'our':
+            new_weights = compute_weights(model, weights_loader, device)
+            imbalanced_train_loader.sampler.weights = new_weights
         train(args, model, device, imbalanced_train_loader, weights_loader, optimizer, loss, epoch)
         test_acc, confusion_mtx = test(args, model, device, test_loader)
         test_accs.append(test_acc)
