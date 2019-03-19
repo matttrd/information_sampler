@@ -82,7 +82,8 @@ def cfg():
     whitelist = '[]'
     # marker
     marker = ''
-
+    unbalanced = False
+    sampler = 'default' # (default | our | ufoym )
 
 best_top1 = 0
 
@@ -105,6 +106,48 @@ def init(name):
     register_hooks(ctx)
     
 
+
+def compute_weights(model, weights_loader, device):
+    model.eval()
+    weights = []
+    target_list = []
+    hist_list = []
+    with torch.no_grad():
+        for batch_idx, (data, target) in enumerate(weights_loader):
+            data, target = data.to(device), target.to(device)
+            output = model(data)
+            output = output.squeeze()
+            softmax = F.softmax(output, dim=1).cpu().numpy()
+            row = np.arange(len(target))
+            col = target.cpu().numpy()
+            weights.append(np.ones_like(softmax[row, col]) - softmax[row, col])
+            target_list.append(target)
+
+    targets_tensor = torch.cat(target_list)
+    weights = np.hstack(weights).squeeze()
+    weights = torch.FloatTensor(weights)
+    weights = weights.to(device)
+    sorted_, indices = torch.sort(weights)
+    topk = context.args.topk
+    topk_idx = indices[:topk]
+    topk_value = sorted_[:topk]
+    num_classes = output.shape[1]
+    context.top_weights['indices'].append(topk_idx.data.cpu().numpy())
+    context.top_weights['values'].append(topk_value.data.cpu().numpy())
+    if context.init == 0:
+        context.histograms = {str(k): [] for k in range(num_classes)}
+        context.histograms['total'] = []
+        context.init = 1
+    for cl in range(num_classes):
+        idx_w_cl = targets_tensor == cl
+        w_cl = weights[idx_w_cl]
+        hist, bin_edges = np.histogram(w_cl.cpu().numpy(), bins=100, range=(0,1))
+        context.histograms[str(cl)].append(hist)
+    hist, bin_edges = np.histogram(weights.cpu().numpy(), bins=100, range=(0,1))
+    context.histograms['total'].append(hist)
+    context.histograms['bin_edges'] = bin_edges
+    return weights
+
 @batch_hook(ctx, mode='train')
 def runner(input, target, model, criterion, optimizer):
     # compute output
@@ -120,8 +163,7 @@ def runner(input, target, model, criterion, optimizer):
         loss.backward()
         optimizer.step()
         avg_stats = {'loss': ctx.losses.value()[0], 
-                 'top1': ctx.errors.value()[0], 
-                 'top5': ctx.errors.value()[1]}
+                     'top1': ctx.errors.value()[0]}
         # batch_stats = {'loss': loss.item(), 
         #          'top1': ctx.errors.value()[0], 
         #          'top5': ctx.errors.value()[1]}
@@ -149,17 +191,15 @@ def train(train_loader, model, criterion, optimizer, epoch, opt):
 
         loss = stats['loss']
         top1 = stats['top1']
-        top5 = stats['top5']
 
         if i % opt['print_freq'] == 0:
             print('Epoch: [{0}][{1}/{2}]\t'
                   'Time {time:.3f}\t'
                   'Loss {loss:.4f}\t'
-                  'Err@1 {top1:.3f}\t'
-                  'Err@5 {top5:.3f}'.format(
+                  'Err@1 {top1:.3f}\t'.format(
                    epoch, i, len(train_loader),
                    time=data_time.value(), loss=loss, 
-                   top1=top1, top5=top5))
+                   top1=top1))
 
     return stats
  
@@ -186,7 +226,6 @@ def validate(val_loader, model, criterion, opt):
          
             loss = losses.value()[0]
             top1 = errors.value()[0]
-            top5 = errors.value()[1]
 
             # if i % opt['print_freq'] == 0:
             #     print('[{0}/{1}]\t'
@@ -199,9 +238,9 @@ def validate(val_loader, model, criterion, opt):
             #            time=data_time.value(), loss=loss, 
             #            top1=top1, top5=top5))
 
-        print(' * Err@1 {top1:.3f} Err@5 {top5:.3f}'
-              .format(top1=top1, top5=top5))
-    stats = {'loss': loss, 'top1': top1, 'top5': top5}
+        print(' * Err@1 {top1:.3f}'
+              .format(top1=top1))
+    stats = {'loss': loss, 'top1': top1}
     ctx.metrics = stats
     ctx.images = input
     return stats
@@ -248,7 +287,7 @@ def main_worker(opt):
      # create model
     if opt['pretrained']:
         print("=> using pre-trained model '{}'".format(opt['arch']))
-        if 'allcnn' in opt['arch'] or 'wrn' in opt['arch']:
+        if 'allcnn' in opt['arch'] or 'wrn' in opt['arch'] or 'lenet' in opt['arch']:
             model = models.__dict__[opt['arch']](opt)
             load_pretrained(model, opt['dataset'])
         else:
@@ -292,7 +331,7 @@ def main_worker(opt):
     cudnn.benchmark = True
 
     # Data loading code
-    train_loader, val_loader = load_data(opt=opt)
+    train_loader, val_loader, weights_loader = load_data(opt=opt)
 
     if opt['evaluate']:
         validate(val_loader, model, criterion, opt)
@@ -336,3 +375,10 @@ def main():
         #               'You may see unexpected behavior when restarting '
         #               'from checkpoints.')
     main_worker(ctx.opt)
+
+    if args.sampler == 'our':
+        with open('./top_weights_' + opt['dataset'] + '_' + ctx.opt['sampler'] + '.pickle', 'wb') as handle:
+            pkl.dump(context.top_weights, handle, protocol=pkl.HIGHEST_PROTOCOL)
+        with open('./histograms_' + opt['dataset'] + '_' + ctx.opt['sampler'] + '.pickle', 'wb') as handle:
+            pkl.dump(context.histograms, handle, protocol=pkl.HIGHEST_PROTOCOL)
+      
