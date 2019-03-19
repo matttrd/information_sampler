@@ -140,10 +140,10 @@ class tfLogger(Hook):
                     self.logger[mode].histo_summary(tag+'/grad', value.grad.data.cpu().numpy(), self.steps)
             self.steps += 1
             # # 3. Log training images (image summary)
-            info = { 'images':ctx.images[:10].cpu().numpy() }
+            # info = { 'images':ctx.images[:10].cpu().numpy() }
 
-            for tag, images in info.items():
-                self.logger.image_summary(tag, images, ctx.i+1)
+            # for tag, images in info.items():
+            #     self.logger.image_summary(tag, images, ctx.i+1)
 
     def on_epoch_end(self, ctx, out, mode):
         # prefix = mode + '.'
