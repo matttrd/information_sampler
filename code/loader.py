@@ -38,6 +38,7 @@ def load_data(name, source, shuffle, opt):
                        transform=transform_train)
     
     if opt['unbalanced']: 
+    	shuffle = False
         try:
             num_classes = len(train_dataset.train_labels.unique())
         except Exception:
@@ -52,12 +53,31 @@ def load_data(name, source, shuffle, opt):
         train_dataset.train_data = np.delete(train_dataset_.dataset.train_data, idx_to_del, axis=0)
         del train_dataset_
 
+
+    # our sampler
+    dataset_length = len(train_dataset)
+   
+    if opt['sampler'] == 'our':
+    	weights_loader = torch.utils.data.DataLoader(train_dataset, batch_size=1024, shuffle=False, **kwargs) # used for the computation of the weights
+    	weights_init = torch.FloatTensor(np.random.uniform(0, 1, dataset_length))
+    	weights_init = weights_init.to(device)
+        sampler = torch.utils.data.WeightedRandomSampler(weights=weights_init, num_samples=int(len(weights_init)), replacement=True)
+    elif opt['sampler'] == 'ufoym':
+        sampler = ImbalancedDatasetSampler(train_dataset)
+        weights_loader = None
+    elif opt['sampler'] == 'default':
+        sampler = None
+        weights_loader = None
+
+
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
-        batch_size=opt['b'], shuffle=shuffle, num_workers=opt['j'], pin_memory=True)
+        batch_size=opt['b'], shuffle=shuffle, num_workers=opt['j'], pin_memory=True, sampler=sampler)
 
     test_loader = torch.utils.data.DataLoader(
         datasets.__dict__[name.upper()](source, train=False, download=True,
-                       transform=transforms_test)
-        batch_size=opt['b'], shuffle=False, num_workers=opt['j'], pin_memory=True)
-    return train_loader, test_loader
+                       transform=transforms_test), 
+        	batch_size=opt['b'], shuffle=False, num_workers=opt['j'], pin_memory=True, sampler=sampler)
+
+    return train_loader, test_loader, weights_loader
+
