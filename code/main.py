@@ -422,9 +422,11 @@ def main():
         #               'from checkpoints.')
     main_worker(ctx.opt)
 
-    if opt.sampler == 'our':
+    if opt['sampler'] == 'our':
         with open('./top_weights_' + opt['dataset'] + '_' + opt['sampler'] + '.pickle', 'wb') as handle:
             pkl.dump(ctx.top_weights, handle, protocol=pkl.HIGHEST_PROTOCOL)
         with open('./histograms_' + opt['dataset'] + '_' + opt['sampler'] + '.pickle', 'wb') as handle:
             pkl.dump(ctx.histograms, handle, protocol=pkl.HIGHEST_PROTOCOL)
-      
+        with open('./weights_means_' + opt['dataset'] + '_' + opt['sampler'] + '.pickle', 'wb') as handle:
+            pkl.dump(ctx.sample_mean, handle, protocol=pkl.HIGHEST_PROTOCOL)
+
