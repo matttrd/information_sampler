@@ -21,6 +21,7 @@ from loader import data_ingredient, load_data
 from sacred import Experiment
 import threading
 from hook import *
+import pickle as pkl
 
 # local thread used as a global context
 ctx = threading.local()
@@ -157,6 +158,24 @@ def compute_weights(model, weights_loader):
     hist, bin_edges = np.histogram(weights.cpu().numpy(), bins=100, range=(0,1))
     ctx.histograms['total'].append(hist)
     ctx.histograms['bin_edges'] = bin_edges
+    # update sample mean of the weights and differences (new_weights - old_weights)
+    if ctx.counter == 0:
+        # delete txt file associated to previous experiment
+        try:
+            os.remove('./test.txt')
+        except OSError:
+            pass
+        # initialize sample mean of the weights
+        ctx.sample_mean = torch.zeros([1, len(weights_loader.dataset)])     
+        # here will be stored weights of the last update
+        ctx.old_weights = torch.zeros([1, len(weights_loader.dataset)])     
+    ctx.counter += 1
+    ctx.sample_mean = ((ctx.counter -1) / ctx.counter) * ctx.sample_mean + (weights / ctx.counter)
+    difference = weights - ctx.old_weights
+    with open('./test.txt', 'a') as myfile:
+        myfile.write(' '.join(map(str, difference.numpy())) + '\n')
+    ctx.old_weights = weights
+
     return weights
 
 @batch_hook(ctx, mode='train')
@@ -354,6 +373,8 @@ def main_worker(opt):
     # Data loading code
     train_loader, val_loader, weights_loader = load_data(opt=opt)
 
+    ctx.counter = torch.Tensor([0])     # count the number of times weights are updated
+
     if opt['evaluate']:
         validate(val_loader, model, criterion, opt)
         return
@@ -401,9 +422,9 @@ def main():
         #               'from checkpoints.')
     main_worker(ctx.opt)
 
-    if args.sampler == 'our':
-        with open('./top_weights_' + opt['dataset'] + '_' + ctx.opt['sampler'] + '.pickle', 'wb') as handle:
+    if opt.sampler == 'our':
+        with open('./top_weights_' + opt['dataset'] + '_' + opt['sampler'] + '.pickle', 'wb') as handle:
             pkl.dump(ctx.top_weights, handle, protocol=pkl.HIGHEST_PROTOCOL)
-        with open('./histograms_' + opt['dataset'] + '_' + ctx.opt['sampler'] + '.pickle', 'wb') as handle:
+        with open('./histograms_' + opt['dataset'] + '_' + opt['sampler'] + '.pickle', 'wb') as handle:
             pkl.dump(ctx.histograms, handle, protocol=pkl.HIGHEST_PROTOCOL)
       
