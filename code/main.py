@@ -8,11 +8,13 @@ import sys
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.nn.parallel
 import torch.backends.cudnn as cudnn
 import torch.optim
 import torch.utils.data
 from torchnet.meter import ClassErrorMeter, ConfusionMeter, TimeMeter, AverageValueMeter
+from exptutils import *
 #import torchvision.models as models
 import models
 from loader import data_ingredient, load_data 
@@ -69,21 +71,27 @@ def cfg():
     lrs = '[[0,0.1],[60,0.02],[120,0.004],[160,0.0008],[180,0.0001]]'
     # dropout (if any)
     d = 0.
+    #save model
+    save = False
+
     # file logger
-    fl = False
+    if save:
+        fl = True
+    else:
+        fl = False
     # Tensorflow logger
     tfl = False
     dbl = False
     # output dir
     o = '../results/'
-    #save model
-    save = False
     #whitelist for filename
     whitelist = '[]'
     # marker
     marker = ''
     unbalanced = False
     sampler = 'default' # (default | our | ufoym )
+    wufreq = 0.1 #weights sampler frequency
+    topkw = 500 # number of weight to analyse (default 500)
 
 best_top1 = 0
 
@@ -103,18 +111,21 @@ def init(name):
     ctx.metrics = dict()
     ctx.metrics['best_top1'] = best_top1
     ctx.hooks = None
+    ctx.top_weights = {'indices': [], 'values': []}
+    ctx.init = 0
     register_hooks(ctx)
     
 
 
-def compute_weights(model, weights_loader, device):
+def compute_weights(model, weights_loader):
+    opt = ctx.opt
     model.eval()
     weights = []
     target_list = []
     hist_list = []
     with torch.no_grad():
         for batch_idx, (data, target) in enumerate(weights_loader):
-            data, target = data.to(device), target.to(device)
+            data, target = data.cuda(opt['g']), target.cuda(opt['g'])
             output = model(data)
             output = output.squeeze()
             softmax = F.softmax(output, dim=1).cpu().numpy()
@@ -126,26 +137,26 @@ def compute_weights(model, weights_loader, device):
     targets_tensor = torch.cat(target_list)
     weights = np.hstack(weights).squeeze()
     weights = torch.FloatTensor(weights)
-    weights = weights.to(device)
+    weights = weights.cuda(opt['g'])
     sorted_, indices = torch.sort(weights)
-    topk = context.args.topk
+    topk = ctx.opt['topkw']
     topk_idx = indices[:topk]
     topk_value = sorted_[:topk]
     num_classes = output.shape[1]
-    context.top_weights['indices'].append(topk_idx.data.cpu().numpy())
-    context.top_weights['values'].append(topk_value.data.cpu().numpy())
-    if context.init == 0:
-        context.histograms = {str(k): [] for k in range(num_classes)}
-        context.histograms['total'] = []
-        context.init = 1
+    ctx.top_weights['indices'].append(topk_idx.data.cpu().numpy())
+    ctx.top_weights['values'].append(topk_value.data.cpu().numpy())
+    if ctx.init == 0:
+        ctx.histograms = {str(k): [] for k in range(num_classes)}
+        ctx.histograms['total'] = []
+        ctx.init = 1
     for cl in range(num_classes):
         idx_w_cl = targets_tensor == cl
         w_cl = weights[idx_w_cl]
         hist, bin_edges = np.histogram(w_cl.cpu().numpy(), bins=100, range=(0,1))
-        context.histograms[str(cl)].append(hist)
+        ctx.histograms[str(cl)].append(hist)
     hist, bin_edges = np.histogram(weights.cpu().numpy(), bins=100, range=(0,1))
-    context.histograms['total'].append(hist)
-    context.histograms['bin_edges'] = bin_edges
+    ctx.histograms['total'].append(hist)
+    ctx.histograms['bin_edges'] = bin_edges
     return weights
 
 @batch_hook(ctx, mode='train')
@@ -178,12 +189,21 @@ def train(train_loader, model, criterion, optimizer, epoch, opt):
     data_time = TimeMeter(unit=1)
     ctx.losses = AverageValueMeter()
     ctx.errors = ClassErrorMeter(topk=[1,5])
+    n_iters = int(len(train_loader) * opt['wufreq'])
+
     # switch to train mode
     model.train()
 
     # end = time.time()
     for i, (input, target) in enumerate(train_loader):
         # tmp var (for convenience)
+
+        # if batch_idx % n_iters == 0:
+        #     print('recomputing weights')
+        #     if args.sampler == 'our':
+        #         new_weights = compute_weights(model, weights_loader)
+        #         train_loader.sampler.weights = new_weights
+
         ctx.i = i
         input = input.cuda(opt['g'], non_blocking=True)
         target = target.cuda(opt['g'], non_blocking=True)
@@ -191,6 +211,7 @@ def train(train_loader, model, criterion, optimizer, epoch, opt):
 
         loss = stats['loss']
         top1 = stats['top1']
+
 
         if i % opt['print_freq'] == 0:
             print('Epoch: [{0}][{1}/{2}]\t'
@@ -254,7 +275,7 @@ def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
     r = gitrev(opt)
     meta = dict(SHA=r[0], STATUS=r[1], DIFF=r[2])
     state.update({'meta': meta})
-    th.save(state, fn)
+    torch.save(state, fn)
     if is_best:
         filename = os.path.join(opt['o'], opt['arch'], 
                             opt['filename']) + '_best.pth.tar'
@@ -341,6 +362,10 @@ def main_worker(opt):
         ctx.epoch = epoch
         adjust_learning_rate(epoch)
 
+        if opt['sampler'] == 'our':
+            new_weights = compute_weights(model, weights_loader)
+            train_loader.sampler.weights = new_weights
+
         # train for one epoch
         train(train_loader, model, criterion, optimizer, epoch, opt)
 
@@ -378,7 +403,7 @@ def main():
 
     if args.sampler == 'our':
         with open('./top_weights_' + opt['dataset'] + '_' + ctx.opt['sampler'] + '.pickle', 'wb') as handle:
-            pkl.dump(context.top_weights, handle, protocol=pkl.HIGHEST_PROTOCOL)
+            pkl.dump(ctx.top_weights, handle, protocol=pkl.HIGHEST_PROTOCOL)
         with open('./histograms_' + opt['dataset'] + '_' + ctx.opt['sampler'] + '.pickle', 'wb') as handle:
-            pkl.dump(context.histograms, handle, protocol=pkl.HIGHEST_PROTOCOL)
+            pkl.dump(ctx.histograms, handle, protocol=pkl.HIGHEST_PROTOCOL)
       
