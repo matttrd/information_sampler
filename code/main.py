@@ -114,6 +114,8 @@ def init(name):
     ctx.hooks = None
     ctx.top_weights = {'indices': [], 'values': []}
     ctx.init = 0
+    # if ctx.opt['sampler'] == 'our':
+    #     ctx.weights_logger = create_basic_logger(ctx, 'statistics', idx=0)
     register_hooks(ctx)
     
 
@@ -160,20 +162,23 @@ def compute_weights(model, weights_loader):
     ctx.histograms['bin_edges'] = bin_edges
     # update sample mean of the weights and differences (new_weights - old_weights)
     if ctx.counter == 0:
-        # delete txt file associated to previous experiment
+        #delete txt file associated to previous experiment
         try:
-            os.remove('./test.txt')
+            os.remove('./statistics.txt')
         except OSError:
             pass
         # initialize sample mean of the weights
-        ctx.sample_mean = torch.zeros([1, len(weights_loader.dataset)])     
+        ctx.sample_mean = torch.zeros([1, len(weights_loader.dataset)]).cuda(opt['g'])     
         # here will be stored weights of the last update
-        ctx.old_weights = torch.zeros([1, len(weights_loader.dataset)])     
+        ctx.old_weights = torch.zeros([1, len(weights_loader.dataset)]).cuda(opt['g'])     
     ctx.counter += 1
     ctx.sample_mean = ((ctx.counter -1) / ctx.counter) * ctx.sample_mean + (weights / ctx.counter)
     difference = weights - ctx.old_weights
     with open('./test.txt', 'a') as myfile:
         myfile.write(' '.join(map(str, difference.numpy())) + '\n')
+    # stats = dict(diff=difference.cpu().numpy().tolist(), sample_mean=ctx.sample_mean.cpu().numpy().tolist())
+    # with open('./statistics.txt', mode='a') as f:
+    #     f.write(json.dumps(stats))
     ctx.old_weights = weights
 
     return weights
@@ -373,7 +378,7 @@ def main_worker(opt):
     # Data loading code
     train_loader, val_loader, weights_loader = load_data(opt=opt)
 
-    ctx.counter = torch.Tensor([0])     # count the number of times weights are updated
+    ctx.counter = 0     # count the number of times weights are updated
 
     if opt['evaluate']:
         validate(val_loader, model, criterion, opt)
@@ -422,11 +427,11 @@ def main():
         #               'from checkpoints.')
     main_worker(ctx.opt)
 
-    if opt['sampler'] == 'our':
-        with open('./top_weights_' + opt['dataset'] + '_' + opt['sampler'] + '.pickle', 'wb') as handle:
+    if ctx.opt['sampler'] == 'our':
+        with open('./top_weights_' + ctx.opt['dataset'] + '_' + ctx.opt['sampler'] + '.pickle', 'wb') as handle:
             pkl.dump(ctx.top_weights, handle, protocol=pkl.HIGHEST_PROTOCOL)
-        with open('./histograms_' + opt['dataset'] + '_' + opt['sampler'] + '.pickle', 'wb') as handle:
+        with open('./histograms_' + ctx.opt['dataset'] + '_' + ctx.opt['sampler'] + '.pickle', 'wb') as handle:
             pkl.dump(ctx.histograms, handle, protocol=pkl.HIGHEST_PROTOCOL)
         with open('./weights_means_' + opt['dataset'] + '_' + opt['sampler'] + '.pickle', 'wb') as handle:
-            pkl.dump(ctx.sample_mean, handle, protocol=pkl.HIGHEST_PROTOCOL)
+            pkl.dump(ctx.sample_mean.cpu().numpy(), handle, protocol=pkl.HIGHEST_PROTOCOL)
 

@@ -17,6 +17,26 @@ def gitrev(opt):
     rs[0] = rs[0].strip()
     return rs
 
+def create_basic_logger(ctx, filename, idx=0):
+    opt = ctx.opt
+    d = os.path.join(opt.get('o'), opt['arch']) +'/logs'
+    if not os.path.isdir(d):
+        os.makedirs(d)
+
+    fn = os.path.join(d, filename + '.log')
+    l = logging.getLogger('%s'%idx)
+    l.propagate = False
+
+    fh = logging.FileHandler(fn)
+    fmt = logging.Formatter('%(message)s')
+    fh.setFormatter(fmt)
+    l.setLevel(logging.INFO)
+    l.addHandler(fh)
+    ctx.ex.info['weights_logger'] = fn
+    return l
+
+
+
 def create_logger(ctx, idx=0):
     opt = ctx.opt
     if not opt.get('fl', None):
