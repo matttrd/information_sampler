@@ -25,7 +25,7 @@ import pickle as pkl
 
 # local thread used as a global context
 ctx = threading.local()
-ex = Experiment('base', ingredients=[data_ingredient])
+ex = Experiment('information sampler', ingredients=[data_ingredient])
 ctx.ex = ex
 
 model_names = sorted(name for name in models.__dict__
