@@ -376,12 +376,13 @@ def main_worker(opt):
     cudnn.benchmark = True
 
     # Data loading code
-    train_loader, val_loader, weights_loader = load_data(opt=opt)
+    train_loader, val_loader, clean_train_loader, weights_loader = load_data(opt=opt)
 
     ctx.counter = 0     # count the number of times weights are updated
 
     if opt['evaluate']:
         validate(val_loader, model, criterion, opt)
+        validate(clean_train_loader, model, criterion, opt)
         return
 
     for epoch in range(opt['start_epoch'], opt['epochs']):
@@ -397,7 +398,7 @@ def main_worker(opt):
 
         # evaluate on validation set
         metrics = validate(val_loader, model, criterion, opt)
-
+        validate(clean_train_loader, model, criterion, opt)
         # remember best top@1 and save checkpoint
         top1 = metrics['top1']
         is_best = top1 < best_top1
@@ -432,6 +433,6 @@ def main():
             pkl.dump(ctx.top_weights, handle, protocol=pkl.HIGHEST_PROTOCOL)
         with open('./histograms_' + ctx.opt['dataset'] + '_' + ctx.opt['sampler'] + '.pickle', 'wb') as handle:
             pkl.dump(ctx.histograms, handle, protocol=pkl.HIGHEST_PROTOCOL)
-        with open('./weights_means_' + opt['dataset'] + '_' + opt['sampler'] + '.pickle', 'wb') as handle:
+        with open('./weights_means_' + ctx.opt['dataset'] + '_' + ctx.opt['sampler'] + '.pickle', 'wb') as handle:
             pkl.dump(ctx.sample_mean.cpu().numpy(), handle, protocol=pkl.HIGHEST_PROTOCOL)
 
