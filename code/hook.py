@@ -100,7 +100,8 @@ class tfLogger(Hook):
         from pathlib import Path
         self.home = str(Path.home())
         self.logger = dict()
-        logdir = os.path.join(self.home + '/tflogs', ctx.opt['arch'])
+        #logdir = os.path.join(self.home + '/tflogs', ctx.opt['arch'])
+        logdir = os.path.join(self.home + '/tflogs', ctx.opt['filename'])
         self.logger['train'] = _tfLogger(os.path.join(logdir, 'train'))
         self.logger['val'] = _tfLogger(os.path.join(logdir, 'val'))
         self.steps = 0
