@@ -179,7 +179,7 @@ class dbLogger(Hook):
 
     def on_train_end(self, ctx):
         pass
-        
+
 class fLogger(Hook):
     def on_train_begin(self, ctx):
         logger = create_logger(ctx)
@@ -213,7 +213,8 @@ class fLogger(Hook):
         ss.update(**out)
         ctx.ex.logger.info('[SUMMARY] ' + json.dumps(ss))
 
-
+    def on_train_end(self, ctx):
+        pass
 # Code referenced from https://gist.github.com/gyglim/1f8dfb1b5c82627ae3efcfbbadb9f514
 
 
