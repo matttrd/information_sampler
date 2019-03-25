@@ -177,6 +177,9 @@ class dbLogger(Hook):
         for k,v in out.items():
             ctx.ex.log_scalar(prefix + k, v)
 
+    def on_train_end(self, ctx):
+        pass
+        
 class fLogger(Hook):
     def on_train_begin(self, ctx):
         logger = create_logger(ctx)
