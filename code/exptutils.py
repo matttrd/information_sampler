@@ -83,8 +83,10 @@ def schedule(ctx, k=None):
     if opt[ks] == '':
         opt[ks] = json.dumps([[opt['epochs'], opt[k]]])
 
-    #rs = json.loads(opt[ks])
-    rs = opt[ks]
+    if isinstance(opt[ks], str):
+        rs = json.loads(opt[ks])
+    else:
+        rs = opt[ks]
 
     idx = len(rs)-1
     for i in range(1,len(rs)):

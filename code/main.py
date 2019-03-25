@@ -175,7 +175,7 @@ def compute_weights(model, weights_loader):
     ctx.sample_mean = ((ctx.counter -1) / ctx.counter) * ctx.sample_mean + (weights / ctx.counter)
     difference = weights - ctx.old_weights
     with open('./test.txt', 'a') as myfile:
-        myfile.write(' '.join(map(str, difference.numpy())) + '\n')
+        myfile.write(' '.join(map(str, difference.cpu().numpy())) + '\n')
     # stats = dict(diff=difference.cpu().numpy().tolist(), sample_mean=ctx.sample_mean.cpu().numpy().tolist())
     # with open('./statistics.txt', mode='a') as f:
     #     f.write(json.dumps(stats))
