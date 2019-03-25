@@ -42,6 +42,11 @@ def load_data(name, source, shuffle, frac, opt):
     train_dataset = datasets.__dict__[name.upper()](source, train=True, download=True,
                        transform=transform_train)
     
+    clean_train_dataset = datasets.__dict__[name.upper()](source, train=True, download=True,
+                       transform=transforms.Compose([
+                            transforms.ToTensor(),
+                            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]))
+    
     test_dataset = datasets.__dict__[name.upper()](source, train=False, download=True,
                        transform=transforms_test)
 
@@ -49,12 +54,12 @@ def load_data(name, source, shuffle, frac, opt):
     test_length = len(test_dataset)
 
     if frac < 1:
-    	train_dataset.train_labels = train_dataset.train_labels[:int(frac * train_length)]
-    	train_dataset.train_data = train_dataset.train_data[:int(frac * train_length)]
-    	test_dataset.train_labels = test_dataset.test_labels[:int(frac * test_length)]
-    	test_dataset.train_data = test_dataset.test_data[:int(frac * test_length)]
-    	train_length = len(train_dataset)
-    	test_length = len(test_dataset)
+        train_dataset.train_labels = train_dataset.train_labels[:int(frac * train_length)]
+        train_dataset.train_data = train_dataset.train_data[:int(frac * train_length)]
+        test_dataset.train_labels = test_dataset.test_labels[:int(frac * test_length)]
+        test_dataset.train_data = test_dataset.test_data[:int(frac * test_length)]
+        train_length = len(train_dataset)
+        test_length = len(test_dataset)
 
     if opt['unbalanced']: 
         try:
@@ -94,9 +99,13 @@ def load_data(name, source, shuffle, frac, opt):
         train_dataset,
         batch_size=opt['b'], shuffle=shuffle, num_workers=opt['j'], pin_memory=True, sampler=sampler)
 
+    clean_train_loader = torch.utils.data.DataLoader(
+        train_dataset,
+        batch_size=opt['b'], shuffle=False, num_workers=opt['j'], pin_memory=True, sampler=sampler)
+
     test_loader = torch.utils.data.DataLoader(
-        	test_dataset, 
+            test_dataset, 
             batch_size=opt['b'], shuffle=False, num_workers=opt['j'], pin_memory=True)
 
-    return train_loader, test_loader, weights_loader
+    return train_loader, test_loader, clean_train_loader, weights_loader
 
