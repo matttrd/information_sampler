@@ -82,7 +82,7 @@ def cfg():
         fl = False
     # Tensorflow logger
     tfl = False
-    dbl = False
+    dbl = True
     # output dir
     o = '../results/'
     #whitelist for filename
@@ -97,7 +97,9 @@ def cfg():
 best_top1 = 0
 
 # for some reason, the db must me created in the global scope
+# that is there is not chance to select it easily (fix it)
 if ex.configurations[0]()['dbl']:
+# if ex.configurations[0]()['dbl']:
     from sacred.observers import MongoObserver
     from sacred.utils import apply_backspaces_and_linefeeds
     print('Creating database')
@@ -106,6 +108,7 @@ if ex.configurations[0]()['dbl']:
 
 @data_ingredient.capture
 def init(name):
+    
     ctx.epoch = 0
     ctx.opt = init_opt(ctx)
     if ctx.opt.get('filename', None) is None:
