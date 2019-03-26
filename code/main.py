@@ -303,6 +303,48 @@ def validate(val_loader, model, criterion, opt):
     return stats
 
 
+@epoch_hook(ctx, mode='train_clean')
+def clean_train(val_loader, model, criterion, opt):
+    data_time = TimeMeter(unit=1)
+    losses = AverageValueMeter()
+    errors = ClassErrorMeter(topk=[1,5])
+    # switch to evaluate mode
+    model.eval()
+
+    with torch.no_grad():
+        end = time.time()
+        for i, (input, target) in enumerate(val_loader):
+            input = input.cuda(opt['g'], non_blocking=True)
+            target = target.cuda(opt['g'], non_blocking=True)
+
+            # compute output
+            output = model(input)
+            loss = criterion(output, target)
+
+            errors.add(output, target)
+            losses.add(loss.item())
+         
+            loss = losses.value()[0]
+            top1 = errors.value()[0]
+
+            # if i % opt['print_freq'] == 0:
+            #     print('[{0}/{1}]\t'
+            #           'Time {time:.3f}\t'
+            #           'Loss {loss:.4f}\t'
+            #           'Err@1 {top1:.3f}\t'
+            #           'Err@5 {top5:.3f}'.format(
+            #            i, 
+            #            len(val_loader),
+            #            time=data_time.value(), loss=loss, 
+            #            top1=top1, top5=top5))
+
+        print(' * Err@1 {top1:.3f}'
+              .format(top1=top1))
+    stats = {'loss': loss, 'top1': top1}
+    ctx.metrics = stats
+    ctx.images = input
+    return stats
+
 def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
     if not ctx.opt['save']:
         return
@@ -398,7 +440,7 @@ def main_worker(opt):
 
     if opt['evaluate']:
         validate(val_loader, model, criterion, opt)
-        validate(clean_train_loader, model, criterion, opt)
+        clean_train(clean_train_loader, model, criterion, opt)
         return
 
     for epoch in range(opt['start_epoch'], opt['epochs']):
@@ -414,7 +456,7 @@ def main_worker(opt):
 
         # evaluate on validation set
         metrics = validate(val_loader, model, criterion, opt)
-        validate(clean_train_loader, model, criterion, opt)
+        clean_train(clean_train_loader, model, criterion, opt)
         # remember best top@1 and save checkpoint
         top1 = metrics['top1']
         is_best = top1 < best_top1

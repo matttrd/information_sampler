@@ -113,6 +113,7 @@ class tfLogger(Hook):
         #logdir = os.path.join(self.home + '/tflogs', ctx.opt['arch'])
         logdir = os.path.join(self.home + '/tflogs', ctx.opt['filename'])
         self.logger['train'] = _tfLogger(os.path.join(logdir, 'train'))
+        self.logger['train_clean'] = _tfLogger(os.path.join(logdir, 'train_clean'))
         self.logger['val'] = _tfLogger(os.path.join(logdir, 'val'))
         self.steps = 0
         ctx.ex.info.setdefault("tensorflow", {}).setdefault(
