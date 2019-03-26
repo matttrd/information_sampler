@@ -173,11 +173,13 @@ def compute_weights(model, weights_loader):
     # update sample mean of the weights and differences (new_weights - old_weights)
     
     inp_w_dir = os.path.join(opt.get('o'), opt['filename']) +'/weights_dir/'
+    ctx.inp_w_dir = inp_w_dir
     if ctx.counter == 0:  
         if os.path.exists(inp_w_dir) and os.path.isdir(inp_w_dir):
             shutil.rmtree(inp_w_dir)
-
         os.makedirs(inp_w_dir)
+        os.makedirs(os.path.join(inp_w_dir, 'tmp'))
+        
         # initialize sample mean of the weights
         ctx.sample_mean = torch.zeros([1, len(weights_loader.dataset)]).cuda(opt['g'])     
         # here will be stored weights of the last update
@@ -192,7 +194,7 @@ def compute_weights(model, weights_loader):
     ctx.cum_sum_diff = cum_abs_diff(ctx.cum_sum, ctx.old_weights, weights)
     ctx.cum_sum += torch.abs(weights)
 
-    with open(inp_w_dir + 'wdiff_' + str(ctx.counter) + '.pickle', 'wb') as handle:
+    with open(os.path.join(inp_w_dir, 'tmp', 'weights_differences_' + str(ctx.counter) + '.pickle'), 'wb') as handle:
         pkl.dump(difference.cpu().numpy(), handle, protocol=pkl.HIGHEST_PROTOCOL)
     ctx.old_weights = weights
 
@@ -492,11 +494,20 @@ def main():
         #               'from checkpoints.')
     main_worker(ctx.opt)
 
-    if ctx.opt['sampler'] == 'our':
-        with open('./top_weights_' + ctx.opt['dataset'] + '_' + ctx.opt['sampler'] + '.pickle', 'wb') as handle:
-            pkl.dump(ctx.top_weights, handle, protocol=pkl.HIGHEST_PROTOCOL)
-        with open('./histograms_' + ctx.opt['dataset'] + '_' + ctx.opt['sampler'] + '.pickle', 'wb') as handle:
-            pkl.dump(ctx.histograms, handle, protocol=pkl.HIGHEST_PROTOCOL)
-        with open('./weights_means_' + ctx.opt['dataset'] + '_' + ctx.opt['sampler'] + '.pickle', 'wb') as handle:
-            pkl.dump(ctx.sample_mean.cpu().numpy(), handle, protocol=pkl.HIGHEST_PROTOCOL)
+
+    with open(os.path.join(ctx.inp_w_dir, 'top_weights.pickle'), 'wb') as handle:
+        pkl.dump(ctx.top_weights, handle, protocol=pkl.HIGHEST_PROTOCOL)
+    with open(os.path.join(ctx.inp_w_dir, 'histograms.pickle'), 'wb') as handle:
+        pkl.dump(ctx.histograms, handle, protocol=pkl.HIGHEST_PROTOCOL)
+    with open(os.path.join(ctx.inp_w_dir, 'weights_means.pickle'), 'wb') as handle:
+        pkl.dump(ctx.sample_mean.cpu().numpy(), handle, protocol=pkl.HIGHEST_PROTOCOL)
+    # concatenate weights differences
+    weights_diff = []
+    for i in range(1, ctx.counter + 1):
+        name = 'weights_differences_' + str(i) + '.pickle'
+        weights_diff.append(np.load(os.path.join(ctx.inp_w_dir, 'tmp', name)))
+    weights_diff = np.vstack(weights_diff)
+    with open(os.path.join(ctx.inp_w_dir, 'weights_differences.pickle'), 'wb') as handle:
+        pkl.dump(weights_diff, handle, protocol=pkl.HIGHEST_PROTOCOL)
+    shutil.rmtree(os.path.join(ctx.inp_w_dir, 'tmp'))
 

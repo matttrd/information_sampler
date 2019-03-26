@@ -134,6 +134,9 @@ def build_filename(ctx):
     for k in o.keys():
         if k not in whitelist or k in blacklist:
             oc.pop(k, None)
+        if k == 'dataset':
+            oc[k] = oc[k]['name']
+
     o = oc
     t = ''
     if not marker == '':
