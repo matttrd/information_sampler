@@ -79,20 +79,20 @@ def load_data(name, source, shuffle, frac, opt):
 
     # our sampler
     dataset_length = len(train_dataset)
-   
+    weights_loader = torch.utils.data.DataLoader(train_dataset, batch_size=256, shuffle=False, pin_memory=True) # used for the computation of the weights
+
     if opt['sampler'] == 'our':
         shuffle = False
-        weights_loader = torch.utils.data.DataLoader(train_dataset, batch_size=256, shuffle=False, pin_memory=True) # used for the computation of the weights
         weights_init = torch.FloatTensor(np.random.uniform(0, 1, dataset_length))
         weights_init = weights_init.cuda(opt['g'])
         sampler = torch.utils.data.WeightedRandomSampler(weights=weights_init, num_samples=int(len(weights_init)), replacement=True)
     elif opt['sampler'] == 'ufoym':
         shuffle = False
         sampler = ImbalancedDatasetSampler(train_dataset)
-        weights_loader = None
+        #weights_loader = None
     elif opt['sampler'] == 'default':
         sampler = None
-        weights_loader = None
+        #weights_loader = None
 
 
     train_loader = torch.utils.data.DataLoader(
