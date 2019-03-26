@@ -453,7 +453,10 @@ def main_worker(opt):
         if opt['sampler'] == 'our':
             new_weights = compute_weights(model, weights_loader)
             train_loader.sampler.weights = new_weights
-
+        else:
+        	# compute dummy weights for visualization
+        	_ = compute_weights(model, weights_loader)
+        	
         # train for one epoch
         train(train_loader, model, criterion, optimizer, epoch, opt)
 

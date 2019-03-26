@@ -26,7 +26,7 @@ def runner():
         if not len(cmds):
             return
         c = cmds.pop()
-        c = c + (' -g %d')%(gs[idx%len(gs)])
+        c = c + (' g=%d')%(gs[idx%len(gs)])
         p = subprocess.Popen(c, shell=True)
         running[idx] = p
         print('[Launch] ', p, c)
