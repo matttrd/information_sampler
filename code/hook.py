@@ -3,6 +3,8 @@ from exptutils import *
 # import tensorflow as tf
 import numpy as np
 import scipy.misc 
+from models import get_num_classes
+import torch
 
 class Hook():
     "Base class for hooks (loggers for now)"
@@ -94,6 +96,14 @@ def train_hook(ctx):
 
 
 class tfLogger(Hook):
+    
+    def get_most_osc(self, ctx, k):
+        return torch.topk(ctx.cum_sum_diff, k)
+
+    def get_topk(self, ctx, k, largest=True):
+        return torch.topk(ctx.cum_sum, k, largest=largest)
+
+
     def on_train_begin(self, ctx):
         global tf
         import tensorflow as tf
@@ -141,7 +151,12 @@ class tfLogger(Hook):
                     self.logger[mode].histo_summary(tag+'/grad', value.grad.data.cpu().numpy(), self.steps)
             self.steps += 1
             # # 3. Log training images (image summary)
-            # info = { 'images':ctx.images[:10].cpu().numpy() }
+            # info = { 'osc_images':ctx.images['osc'][:50].cpu().numpy() }
+
+            # for tag, images in info.items():
+            #     self.logger.image_summary(tag, images, ctx.i+1)
+
+            # info = { 'difficult_images':ctx.images['diff'][:50].cpu().numpy() }
 
             # for tag, images in info.items():
             #     self.logger.image_summary(tag, images, ctx.i+1)
@@ -157,6 +172,43 @@ class tfLogger(Hook):
             #     merged_summary_op = tf.summary.merge_all()
             #     ctx.summary = sess.run(merged_summary_op)
             self.logger[mode].scalar_summary(k, v, ctx.epoch)
+
+
+
+        if mode is 'train':
+            num_classes = get_num_classes(ctx.opt)
+            self.logger[mode].histo_summary('weights_hist', None, ctx.epoch, numpy_hist=ctx.histograms['total'][0])
+            for cl in range(num_classes):
+                self.logger[mode].histo_summary('weights_hist_cl_' + str(cl), None, ctx.epoch, numpy_hist=ctx.histograms[str(cl)][0])
+
+            K = 10
+            # oscillating samples
+            _, indices = self.get_most_osc(ctx, K)
+            images =  ctx.train_loader.dataset.train_data[indices.squeeze().cpu().numpy()]
+
+            info = { 'osc_images':images }
+
+            for tag, images in info.items():
+                self.logger[mode].image_summary(tag, images, ctx.epoch)
+
+            # difficult samples
+            _, indices = self.get_topk(ctx, K)
+            images =  ctx.train_loader.dataset.train_data[indices.squeeze().cpu().numpy()]
+
+            info = { 'difficult_images':images}
+
+            for tag, images in info.items():
+                self.logger[mode].image_summary(tag, images, ctx.epoch)
+
+            # easy samples
+            _, indices = self.get_topk(ctx, K, largest=False)
+            images =  ctx.train_loader.dataset.train_data[indices.squeeze().cpu().numpy()]
+
+            info = { 'easy_images':images}
+
+            for tag, images in info.items():
+                self.logger[mode].image_summary(tag, images, ctx.epoch)
+
 
 class dbLogger(Hook):
     def on_train_begin(self, ctx):
@@ -216,7 +268,6 @@ class fLogger(Hook):
 
     def on_train_end(self, ctx):
         pass
-# Code referenced from https://gist.github.com/gyglim/1f8dfb1b5c82627ae3efcfbbadb9f514
 
 
 try:
@@ -257,19 +308,22 @@ class _tfLogger(object):
         summary = tf.Summary(value=img_summaries)
         self.writer.add_summary(summary, step)
         
-    def histo_summary(self, tag, values, step, bins=1000):
+    def histo_summary(self, tag, values, step, numpy_hist=None, bins=1000):
         """Log a histogram of the tensor of values."""
 
         # Create a histogram using numpy
-        counts, bin_edges = np.histogram(values, bins=bins)
+        if numpy_hist is None:
+            counts, bin_edges = np.histogram(values, bins=bins)
+        else:
+            counts, bin_edges = numpy_hist[0], numpy_hist[1]
 
         # Fill the fields of the histogram proto
         hist = tf.HistogramProto()
-        hist.min = float(np.min(values))
-        hist.max = float(np.max(values))
-        hist.num = int(np.prod(values.shape))
-        hist.sum = float(np.sum(values))
-        hist.sum_squares = float(np.sum(values**2))
+        hist.min = float(bin_edges[0])
+        hist.max = float(bin_edges[-1])
+        hist.num = int(np.sum(counts))
+        #hist.sum = float(np.sum(values))
+        #hist.sum_squares = float(np.sum(values**2))
 
         # Drop the start of the first bin
         bin_edges = bin_edges[1:]

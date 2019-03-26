@@ -108,6 +108,9 @@ if ex.configurations[0]()['dbl']:
 def init(name):
     ctx.epoch = 0
     ctx.opt = init_opt(ctx)
+    if ctx.opt.get('filename', None) is None:
+        build_filename(ctx)
+
     ctx.opt['dataset'] = name
     ctx.metrics = dict()
     ctx.metrics['best_top1'] = best_top1
@@ -119,6 +122,9 @@ def init(name):
     register_hooks(ctx)
     
 
+
+def cum_abs_diff(cumsum, x_prev, x_new):
+    return cumsum + torch.abs(x_prev - x_new)
 
 def compute_weights(model, weights_loader):
     opt = ctx.opt
@@ -148,6 +154,7 @@ def compute_weights(model, weights_loader):
     num_classes = output.shape[1]
     ctx.top_weights['indices'].append(topk_idx.data.cpu().numpy())
     ctx.top_weights['values'].append(topk_value.data.cpu().numpy())
+    
     if ctx.init == 0:
         ctx.histograms = {str(k): [] for k in range(num_classes)}
         ctx.histograms['total'] = []
@@ -156,29 +163,34 @@ def compute_weights(model, weights_loader):
         idx_w_cl = targets_tensor == cl
         w_cl = weights[idx_w_cl]
         hist, bin_edges = np.histogram(w_cl.cpu().numpy(), bins=100, range=(0,1))
-        ctx.histograms[str(cl)].append(hist)
+        ctx.histograms[str(cl)].append((hist,bin_edges))
+    
     hist, bin_edges = np.histogram(weights.cpu().numpy(), bins=100, range=(0,1))
-    ctx.histograms['total'].append(hist)
-    ctx.histograms['bin_edges'] = bin_edges
+    ctx.histograms['total'].append((hist,bin_edges))
     # update sample mean of the weights and differences (new_weights - old_weights)
-    if ctx.counter == 0:
-        #delete txt file associated to previous experiment
-        try:
-            os.remove('./statistics.txt')
-        except OSError:
-            pass
+    
+    inp_w_dir = os.path.join(opt.get('o'), opt['filename']) +'/weights_dir/'
+    if ctx.counter == 0:  
+        if os.path.exists(inp_w_dir) and os.path.isdir(inp_w_dir):
+            shutil.rmtree(inp_w_dir)
+
+        os.makedirs(inp_w_dir)
         # initialize sample mean of the weights
         ctx.sample_mean = torch.zeros([1, len(weights_loader.dataset)]).cuda(opt['g'])     
         # here will be stored weights of the last update
-        ctx.old_weights = torch.zeros([1, len(weights_loader.dataset)]).cuda(opt['g'])     
+        ctx.old_weights = torch.zeros([1, len(weights_loader.dataset)]).cuda(opt['g'])
+        ctx.cum_sum_diff = torch.zeros_like(ctx.old_weights).cuda(opt['g'])   
+        ctx.cum_sum = 0
+
     ctx.counter += 1
+    ctx.weights = weights
     ctx.sample_mean = ((ctx.counter -1) / ctx.counter) * ctx.sample_mean + (weights / ctx.counter)
     difference = weights - ctx.old_weights
-    with open('./test.txt', 'a') as myfile:
-        myfile.write(' '.join(map(str, difference.cpu().numpy())) + '\n')
-    # stats = dict(diff=difference.cpu().numpy().tolist(), sample_mean=ctx.sample_mean.cpu().numpy().tolist())
-    # with open('./statistics.txt', mode='a') as f:
-    #     f.write(json.dumps(stats))
+    ctx.cum_sum_diff = cum_abs_diff(ctx.cum_sum, ctx.old_weights, weights)
+    ctx.cum_sum += torch.abs(weights)
+
+    with open(inp_w_dir + 'wdiff_' + str(ctx.counter) + '.pickle', 'wb') as handle:
+        pkl.dump(difference.cpu().numpy(), handle, protocol=pkl.HIGHEST_PROTOCOL)
     ctx.old_weights = weights
 
     return weights
@@ -295,14 +307,17 @@ def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
     if not ctx.opt['save']:
         return
     opt = ctx.opt
-    fn = os.path.join(opt['o'], opt['arch'], opt['filename']) + '.pth.tar'
+    #fn = os.path.join(opt['o'], opt['arch'], opt['filename']) + '.pth.tar'
+    fn = os.path.join(opt['o'], opt['filename'], 'last_model.pth.tar')
     r = gitrev(opt)
     meta = dict(SHA=r[0], STATUS=r[1], DIFF=r[2])
     state.update({'meta': meta})
     torch.save(state, fn)
     if is_best:
-        filename = os.path.join(opt['o'], opt['arch'], 
-                            opt['filename']) + '_best.pth.tar'
+        # filename = os.path.join(opt['o'], opt['arch'], 
+        #                     opt['filename']) + '_best.pth.tar'
+        filename = os.path.join(opt['o'], opt['filename'], 
+                            'best.pth.tar')
         shutil.copyfile(fn, filename)
 
 
@@ -377,6 +392,7 @@ def main_worker(opt):
 
     # Data loading code
     train_loader, val_loader, clean_train_loader, weights_loader = load_data(opt=opt)
+    ctx.train_loader = train_loader
 
     ctx.counter = 0     # count the number of times weights are updated
 

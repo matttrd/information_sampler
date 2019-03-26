@@ -19,11 +19,13 @@ def gitrev(opt):
 
 def create_basic_logger(ctx, filename, idx=0):
     opt = ctx.opt
-    d = os.path.join(opt.get('o'), opt['arch']) +'/logs'
+    #d = os.path.join(opt.get('o'), opt['arch']) +'/logs'
+    d = os.path.join(opt.get('o'), opt['filename']) +'/logs'
     if not os.path.isdir(d):
         os.makedirs(d)
 
-    fn = os.path.join(d, filename + '.log')
+    #fn = os.path.join(d, filename + '.log')
+    fn = os.path.join(d, 'flogger.log')
     l = logging.getLogger('%s'%idx)
     l.propagate = False
 
@@ -49,10 +51,12 @@ def create_logger(ctx, idx=0):
     if opt.get('filename', None) is None:
         build_filename(ctx)
 
-    d = os.path.join(opt.get('o'), opt['arch']) +'/logs'
+    #d = os.path.join(opt.get('o'), opt['arch']) +'/logs'
+    d = os.path.join(opt.get('o'), opt['filename']) +'/logs'
     if not os.path.isdir(d):
         os.makedirs(d)
-    fn = os.path.join(d, opt['filename']+'.log')
+    #fn = os.path.join(d, opt['filename']+'.log')
+    fn = os.path.join(d, 'flogger.log')
     l = logging.getLogger('%s'%idx)
     l.propagate = False
 
