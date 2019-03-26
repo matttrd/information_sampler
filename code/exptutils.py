@@ -121,7 +121,7 @@ def build_filename(ctx):
         dconf[k] = opt[k]
 
     base_whilelist = ['dataset', 'arch']
-    blacklist = ['fl', 'tfl', 'dbl', 'o']
+    blacklist = ['fl', 'tfl', 'dbl', 'o', 'source']
     
     from ast import literal_eval
     whitelist = literal_eval(whitelist)
