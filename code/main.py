@@ -52,6 +52,8 @@ def cfg():
     lr = 0.1
     # momentum
     momentum = 0.9
+    #nesterov
+    nesterov = True
     # weight decay (ell-2)
     wd = 0.
     # print-freq
@@ -416,6 +418,7 @@ def main_worker(opt):
 
     optimizer = torch.optim.SGD(model.parameters(), opt['lr'],
                                 momentum=opt['momentum'],
+                                nesterov=opt['nesterov'],
                                 weight_decay=opt['wd'])
 
     ctx.optimizer = optimizer
