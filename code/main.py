@@ -207,7 +207,6 @@ def runner(input, target, model, criterion, optimizer):
     # compute output
         output = model(input)
         loss = criterion(output, target)
-
         # measure accuracy and record loss
         ctx.errors.add(output.data, target.data)
         ctx.losses.add(loss.item())
@@ -248,8 +247,8 @@ def train(train_loader, model, criterion, optimizer, epoch, opt):
         #         train_loader.sampler.weights = new_weights
 
         ctx.i = i
-        input = input.cuda(opt['g'], non_blocking=True)
-        target = target.cuda(opt['g'], non_blocking=True)
+        input = input.cuda(opt['g'])
+        target = target.cuda(opt['g'])
         stats = runner(input, target, model, criterion, optimizer)
 
         loss = stats['loss']
@@ -278,8 +277,8 @@ def validate(val_loader, model, criterion, opt):
     with torch.no_grad():
         end = time.time()
         for i, (input, target) in enumerate(val_loader):
-            input = input.cuda(opt['g'], non_blocking=True)
-            target = target.cuda(opt['g'], non_blocking=True)
+            input = input.cuda(opt['g'])
+            target = target.cuda(opt['g'])
 
             # compute output
             output = model(input)
@@ -316,7 +315,8 @@ def clean_train(val_loader, model, criterion, opt):
     losses = AverageValueMeter()
     errors = ClassErrorMeter(topk=[1,5])
     # switch to evaluate mode
-    model.eval()
+    #model.eval()
+    model.train()
 
     with torch.no_grad():
         end = time.time()
@@ -447,8 +447,8 @@ def main_worker(opt):
     ctx.counter = 0     # count the number of times weights are updated
 
     if opt['evaluate']:
+    	clean_train(clean_train_loader, model, criterion, opt)
         validate(val_loader, model, criterion, opt)
-        clean_train(clean_train_loader, model, criterion, opt)
         return
 
     for epoch in range(opt['start_epoch'], opt['epochs']):
@@ -459,15 +459,16 @@ def main_worker(opt):
             new_weights = compute_weights(model, weights_loader)
             train_loader.sampler.weights = new_weights
         else:
-        	# compute dummy weights for visualization
-        	_ = compute_weights(model, weights_loader)
-        	
+            # compute dummy weights for visualization
+            _ = compute_weights(model, weights_loader)
+            
         # train for one epoch
         train(train_loader, model, criterion, optimizer, epoch, opt)
 
+        clean_train(clean_train_loader, model, criterion, opt)
         # evaluate on validation set
         metrics = validate(val_loader, model, criterion, opt)
-        clean_train(clean_train_loader, model, criterion, opt)
+
         # remember best top@1 and save checkpoint
         top1 = metrics['top1']
         is_best = top1 < best_top1
