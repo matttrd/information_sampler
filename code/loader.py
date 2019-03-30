@@ -15,20 +15,23 @@ def cfg():
     source = '../data/'
     shuffle = True #only for training set by default
     frac = 1 # fraction of dataset used
+    norm = False
 
 @data_ingredient.capture
-def load_data(name, source, shuffle, frac, opt):
+def load_data(name, source, shuffle, frac, norm, opt):
 
     if name == 'cifar10':
         transform_train = transforms.Compose([
             transforms.RandomCrop(32, padding=4),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)) if norm else
+                 transforms.Normalize((0, 0, 0), (1, 1, 1))])
 
         transforms_test = transforms.Compose([
                                 transforms.ToTensor(),
-                                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+                                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)) if norm else
+                 transforms.Normalize((0, 0, 0), (1, 1, 1))])
     elif name == 'mnist':
         transform_train = transforms.Compose([transforms.ToTensor(),
                             transforms.Normalize((0.1307,), (0.3081,))
@@ -45,7 +48,8 @@ def load_data(name, source, shuffle, frac, opt):
     clean_train_dataset = datasets.__dict__[name.upper()](source, train=True, download=True,
                        transform=transforms.Compose([
                             transforms.ToTensor(),
-                            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]))
+                            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)) if norm else
+                 transforms.Normalize((0, 0, 0), (1, 1, 1))]))
     
     test_dataset = datasets.__dict__[name.upper()](source, train=False, download=True,
                        transform=transforms_test)

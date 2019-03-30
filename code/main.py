@@ -65,7 +65,7 @@ def cfg():
     # if True, load a pretrained model
     pretrained = False
     # seed
-    seed = None
+    seed = 42
     # gpu index (or starting gpu idx)
     g = int(0)
     # number of gpus for data parallel
