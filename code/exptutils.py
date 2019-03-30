@@ -121,23 +121,26 @@ def build_filename(ctx):
         dconf[k] = opt[k]
 
     base_whilelist = ['dataset', 'arch']
-    blacklist = ['fl', 'tfl', 'dbl', 'o', 'source']
+    blacklist = ['fl', 'tfl', 'dbl', 'o', 'source', '__doc__', 'j', 'print_freq']
     
     from ast import literal_eval
     whitelist = literal_eval(whitelist)
     whitelist += base_whilelist 
     
     o = json.loads(json.dumps(opt))
-    # dconf overwrites if same key
-    o = {**o, **dconf}
     oc = o.copy()
     for k in o.keys():
-        if k not in whitelist or k in blacklist:
-            oc.pop(k, None)
+        # if k in blacklist:
+        #     oc.pop(k, None)
+        if k not in whitelist:
+        	oc.pop(k, None)
+
         if k == 'dataset':
             oc[k] = oc[k]['name']
-
     o = oc
+    o = {**o, **dconf}
+    
+
     t = ''
     if not marker == '':
         t = marker + '_'
@@ -145,3 +148,4 @@ def build_filename(ctx):
     opt['time'] = t
     opt['filename'] = t + json.dumps(o, sort_keys=True,
                 separators=(',', ':'))
+    print(opt['filename'])
