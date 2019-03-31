@@ -64,6 +64,8 @@ def cfg():
     evaluate = False
     # if True, load a pretrained model
     pretrained = False
+     # if pretrained= True, load 'name_ptr' model
+    name_ptr = ''
     # seed
     seed = 42
     # gpu index (or starting gpu idx)
@@ -398,7 +400,8 @@ def main_worker(opt):
         print("=> using pre-trained model '{}'".format(opt['arch']))
         if 'allcnn' in opt['arch'] or 'wrn' in opt['arch'] or 'lenet' in opt['arch']:
             model = models.__dict__[opt['arch']](opt)
-            load_pretrained(model, opt['dataset'])
+            #load_pretrained(model, opt['dataset'])
+            load_pretrained(model, name_ptr)
         else:
             model = models.__dict__[opt['arch']](opt, pretrained=True)
     else:
@@ -447,7 +450,7 @@ def main_worker(opt):
     ctx.counter = 0     # count the number of times weights are updated
 
     if opt['evaluate']:
-    	clean_train(clean_train_loader, model, criterion, opt)
+        #clean_train(clean_train_loader, model, criterion, opt)
         validate(val_loader, model, criterion, opt)
         return
 

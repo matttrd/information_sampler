@@ -1,6 +1,7 @@
 from __future__ import division, print_function, unicode_literals
 from sacred import Ingredient, Experiment
 from torchvision import datasets, transforms
+import torchnet as tnt
 import torch 
 from sampler import ImbalancedDatasetSampler
 import numpy as np
@@ -39,12 +40,28 @@ def load_data(name, source, shuffle, frac, norm, opt):
         transforms_test = transforms.Compose([
                                 transforms.ToTensor(),
                                 transforms.Normalize((0.1307,), (0.3081,))])
+    elif name == 'cifar10.1':
+        if opt['evaluate']:
+            test_dataset = dict()
+            data = np.load('../data/cifar10.1_v6_data.npy').transpose((0,3,1,2)) / 255.
+            data = np.float32(data)
+            labels = np.load('../data/cifar10.1_v6_labels.npy').tolist()
+            #print(labels.dtype)
+            test_dataset = tnt.dataset.TensorDataset([data, labels])
+            test_loader = torch.utils.data.DataLoader(
+                        test_dataset, 
+                            batch_size=opt['b'], 
+                            shuffle=False, 
+                            num_workers=opt['j'], 
+                            pin_memory=True)
+            return None, test_loader, None, None
+        else:
+            raise ValueError("cifar10.1 can be used only in evaluation mode")
     else:
         raise NotImplementedError
     
     train_dataset = datasets.__dict__[name.upper()](source, train=True, download=True,
                        transform=transform_train)
-    
     clean_train_dataset = datasets.__dict__[name.upper()](source, train=True, download=True,
                        transform=transforms.Compose([
                             transforms.ToTensor(),
@@ -60,8 +77,8 @@ def load_data(name, source, shuffle, frac, norm, opt):
     if frac < 1:
         train_dataset.train_labels = train_dataset.train_labels[:int(frac * train_length)]
         train_dataset.train_data = train_dataset.train_data[:int(frac * train_length)]
-        test_dataset.train_labels = test_dataset.test_labels[:int(frac * test_length)]
-        test_dataset.train_data = test_dataset.test_data[:int(frac * test_length)]
+        test_dataset.test_labels = test_dataset.test_labels[:int(frac * test_length)]
+        test_dataset.test_data = test_dataset.test_data[:int(frac * test_length)]
         train_length = len(train_dataset)
         test_length = len(test_dataset)
 

@@ -14,6 +14,7 @@ track_running_stats = True
 def get_num_classes(opt):
     d = dict(mnist=10, svhn=10, cifar10=10, cifar20=20,
             cifar100=100, imagenet32=1000, imagenet=1000, halfmnist=10)
+    d['cifar10.1']=10
     if not opt['dataset'] in d:
         assert False, 'Unknown dataset: %s'%opt['dataset']
     return d[opt['dataset']]
@@ -26,8 +27,8 @@ pretrained_models = {
     'allcnnl_cifar100': '../models/',
 }
 
-def load_pretrained(model, dataset):
-    name = model.name + '_' + dataset
+def load_pretrained(model, name):
+    #name = model.name + '_' + dataset
     d = th.load(name)
     model.load_state_dict(d['model'])
 
@@ -259,7 +260,7 @@ class allcnn(nn.Module):
         self.name = 'allcnn'
         num_classes = get_num_classes(opt)
 
-        if opt['dataset'] == 'cifar10' or opt['dataset'] == 'cifar100':
+        if opt['dataset'] in ['cifar10', 'cifar10.1', 'cifar100']:
             in_ch = 3
             out_ch = 8
         elif opt['dataset'] == 'mnist':

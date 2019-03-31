@@ -118,7 +118,10 @@ def build_filename(ctx):
     dconf = dict()
     cfg_mdf = ctx.ex.current_run.config_modifications.modified
     for k in cfg_mdf:
-        dconf[k] = opt[k]
+        if 'dataset' in k:
+            dconf['dataset'] = opt['dataset']['name']
+        else:
+            dconf[k] = opt[k]
 
     base_whilelist = ['dataset', 'arch']
     blacklist = ['save', 'fl', 'tfl', 'dbl', 'o', 'source', '__doc__', 'j', 'print_freq']
