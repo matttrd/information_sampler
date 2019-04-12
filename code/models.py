@@ -488,9 +488,10 @@ class resnet18(nn.Module):
     name = 'resnet18'
     def __init__(self, opt):
         super(resnet18, self).__init__()
+        import resnet
         # opt['wd'] = 1e-4
-        trs = opt.get('track_running_stats', track_running_stats)
-        self.m = thv.models.resnet18(num_classes=get_num_classes(opt))        
+        #self.m = thv.models.resnet18(num_classes=get_num_classes(opt))        
+        self.m = resnet.ResNet18(num_classes=get_num_classes(opt))
         self.N = num_parameters(self.m)
         s = '[%s] Num parameters: %d'%(self.name, self.N)
         # print(s)
