@@ -185,7 +185,7 @@ class tfLogger(Hook):
             K = 10
             # oscillating samples
             _, indices = self.get_most_osc(ctx, K)
-            images =  ctx.train_loader.dataset.train_data[indices.squeeze().cpu().numpy()]
+            images =  ctx.train_loader.dataset.data[indices.squeeze().cpu().numpy()]
 
             info = { 'osc_images':images }
 
@@ -194,7 +194,7 @@ class tfLogger(Hook):
 
             # difficult samples
             _, indices = self.get_topk(ctx, K)
-            images =  ctx.train_loader.dataset.train_data[indices.squeeze().cpu().numpy()]
+            images =  ctx.train_loader.dataset.data[indices.squeeze().cpu().numpy()]
 
             info = { 'difficult_images':images}
 
@@ -203,7 +203,7 @@ class tfLogger(Hook):
 
             # easy samples
             _, indices = self.get_topk(ctx, K, largest=False)
-            images =  ctx.train_loader.dataset.train_data[indices.squeeze().cpu().numpy()]
+            images =  ctx.train_loader.dataset.data[indices.squeeze().cpu().numpy()]
 
             info = { 'easy_images':images}
 
