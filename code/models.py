@@ -254,6 +254,47 @@ class cifarcnns(nn.Module):
     def forward(self, x):
         return self.m(x)
 
+
+class allcnn_nobn(nn.Module):
+    def __init__(self, opt, c1=96, c2= 192):
+        super().__init__()
+        self.name = 'allcnn_nobn'
+        num_classes = get_num_classes(opt)
+
+        if opt['dataset'] in ['cifar10', 'cifar10.1', 'cifar100']:
+            in_ch = 3
+            out_ch = 8
+        elif opt['dataset'] == 'mnist':
+            in_ch = 1
+            out_ch = 7
+
+        def convbn(ci,co,ksz,s=1,pz=0):
+            return nn.Sequential(
+                nn.Conv2d(ci,co,ksz,stride=s,padding=pz),
+                nn.ReLU(True))
+
+        self.m = nn.Sequential(
+            nn.Dropout(0.2),
+            convbn(in_ch,c1,3,1,1),
+            convbn(c1,c1,3,1,1),
+            convbn(c1,c1,3,2,1),
+            nn.Dropout(opt['d']),
+            convbn(c1,c2,3,1,1),
+            convbn(c2,c2,3,1,1),
+            convbn(c2,c2,3,2,1),
+            nn.Dropout(opt['d']),
+            convbn(c2,c2,3,1,1),
+            convbn(c2,c2,3,1,1),
+            convbn(c2,num_classes,1,1),
+            nn.AvgPool2d(out_ch),
+            View(num_classes))
+
+        s = '[%s] Num parameters: %d'%(self.name, num_parameters(self.m))
+        print(s)
+
+    def forward(self, x):
+        return self.m(x)
+
 class allcnn(nn.Module):
     def __init__(self, opt, c1=96, c2= 192):
         super(allcnn, self).__init__()
@@ -299,21 +340,6 @@ class allcnn(nn.Module):
 
         s = '[%s] Num parameters: %d'%(self.name, num_parameters(self.m))
         print(s)
-
-        if opt.get('laplace', False):  
-            bmu = 0
-            bb = 0.005
-            from torch.distributions import Laplace
-            for name, p in self.m.named_parameters():
-                if 'weight' in name:
-                    factor = int(name.split('.')[0])
-                    if factor < 6:
-                        if factor == 1:
-                            lap = Laplace(bmu, factor * bb / 5)
-                        else:
-                            lap = Laplace(bmu, factor * bb)
-
-                        p.data = lap.sample(sample_shape=p.data.shape)
 
     def forward(self, x):
         return self.m(x)

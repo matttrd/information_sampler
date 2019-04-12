@@ -95,7 +95,7 @@ def cfg():
     marker = ''
     unbalanced = False
     sampler = 'default' # (default | our | ufoym )
-    wufreq = 0.1 #weights sampler frequency
+    wufreq = 1 #weights sampler frequency
     topkw = 500 # number of weight to analyse (default 500)
 
 best_top1 = 0
@@ -112,7 +112,7 @@ if ex.configurations[0]()['dbl']:
 
 @data_ingredient.capture
 def init(name):
-    
+    ctx.global_iters = 0
     ctx.epoch = 0
     ctx.opt = init_opt(ctx)
     if ctx.opt.get('filename', None) is None:
@@ -242,13 +242,16 @@ def train(train_loader, model, criterion, optimizer, epoch, opt):
     for i, (input, target) in enumerate(train_loader):
         # tmp var (for convenience)
 
-        # if batch_idx % n_iters == 0:
-        #     print('recomputing weights')
-        #     if args.sampler == 'our':
+        # if ctx.global_iters % n_iters == 0:
+        #     if opt['sampler'] == 'our':
         #         new_weights = compute_weights(model, weights_loader)
         #         train_loader.sampler.weights = new_weights
+        #     else:
+        #         # compute dummy weights for visualization
+        #         _ = compute_weights(model, weights_loader)
 
         ctx.i = i
+        ctx.global_iters += 1
         input = input.cuda(opt['g'])
         target = target.cuda(opt['g'])
         stats = runner(input, target, model, criterion, optimizer)
