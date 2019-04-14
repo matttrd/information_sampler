@@ -33,7 +33,26 @@ for label in range(num_classes):
     current_label_histograms = hist[str(label)]
     imageio.mimsave('./hist_label_' + str(label) + '.gif', [plot_for_offset(current_label_histograms[i], bin_edges, label, i+1, y_max) 
                                                             for i in range(len(current_label_histograms))], fps=2)
-    
+
+def get_most_diffucult(frac):
+    with open('../results/' + filename + '/weights_dir/weights_means.pickle', 'rb') as handle:
+        wm = pkl.load(handle)
+    wms_idx = np.argsort(wm)
+    return wms_idx[int(frac * len(wms_idx)):]
+
+
+def reduce_dataset(frac):
+    '''
+    Removes the frac of most difficult examples
+    '''
+    with open('../results/' + filename + '/weights_dir/weights_means.pickle', 'rb') as handle:
+        wm = np.squeeze(pkl.load(handle))
+    wms_idx = np.argsort(wm)
+    return wms_idx[:-int(frac * len(wms_idx))]
+
+
+
+
 
 
 

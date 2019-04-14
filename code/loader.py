@@ -17,9 +17,11 @@ def cfg():
     shuffle = True #only for training set by default
     frac = 1 # fraction of dataset used
     norm = False
+    perc = 0 # percentage of most difficult exemples to be removed
+
 
 @data_ingredient.capture
-def load_data(name, source, shuffle, frac, norm, opt):
+def load_data(name, source, shuffle, frac, perc, norm, opt):
 
     if name == 'cifar10':
         transform_train = transforms.Compose([
@@ -73,6 +75,15 @@ def load_data(name, source, shuffle, frac, norm, opt):
 
     train_length = len(train_dataset)
     test_length = len(test_dataset)
+
+    if perc > 0:
+        sd_idx = torch.load('sorted_datasets.pz')[name]
+        idx = sd_idx[:-int(frac * train_length)]
+        mask = np.ones(train_length, dtype=bool)
+        mask[idx] = False
+        train_dataset.train_labels = train_dataset.train_labels[mask]
+        train_dataset.train_data = train_dataset.train_data[mask]
+        train_length -= len(idx)
 
     if frac < 1:
         train_dataset.train_labels = train_dataset.train_labels[:int(frac * train_length)]
