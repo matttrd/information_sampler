@@ -81,8 +81,8 @@ def load_data(name, source, shuffle, frac, perc, norm, opt):
         idx = sd_idx[:-int(frac * train_length)]
         mask = np.ones(train_length, dtype=bool)
         mask[idx] = False
-        train_dataset.train_labels = train_dataset.train_labels[mask]
-        train_dataset.train_data = train_dataset.train_data[mask]
+        train_dataset.train_labels = np.array(train_dataset.train_labels)[mask]
+        train_dataset.train_data = np.array(train_dataset.train_data)[mask]
         train_length -= len(idx)
 
     if frac < 1:
