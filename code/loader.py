@@ -79,7 +79,7 @@ def load_data(name, source, shuffle, frac, perc, norm, opt):
     if perc > 0:
         print('Dataset reduction of ', perc)
         sd_idx = np.squeeze(torch.load('sorted_datasets.pz')[name])
-        idx = sd_idx[:-int(perc * train_length)]
+        idx = sd_idx[:(1 - perc) * train_length]
         mask = np.ones(train_length, dtype=bool)
         mask[idx] = False
         train_dataset.targets = np.array(train_dataset.targets)[mask]
