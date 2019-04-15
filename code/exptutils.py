@@ -117,7 +117,6 @@ def build_filename(ctx):
     marker = opt['marker']
     dconf = dict()
     cfg_mdf = ctx.ex.current_run.config_modifications.modified
-    cfg_data_mdf = ctx.ex.current_run.ingredients[0].named_configs
     # todo: fix this for sacred
     for k in cfg_mdf:
         if 'dataset' in k:
