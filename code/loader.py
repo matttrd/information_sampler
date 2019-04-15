@@ -81,31 +81,31 @@ def load_data(name, source, shuffle, frac, perc, norm, opt):
         idx = sd_idx[:-int(frac * train_length)]
         mask = np.ones(train_length, dtype=bool)
         mask[idx] = False
-        train_dataset.train_labels = np.array(train_dataset.train_labels)[mask]
-        train_dataset.train_data = np.array(train_dataset.train_data)[mask]
+        train_dataset.targets = np.array(train_dataset.targets)[mask]
+        train_dataset.data = np.array(train_dataset.data)[mask]
         train_length -= len(idx)
 
     if frac < 1:
-        train_dataset.train_labels = train_dataset.train_labels[:int(frac * train_length)]
-        train_dataset.train_data = train_dataset.train_data[:int(frac * train_length)]
-        test_dataset.test_labels = test_dataset.test_labels[:int(frac * test_length)]
-        test_dataset.test_data = test_dataset.test_data[:int(frac * test_length)]
+        train_dataset.targets = train_dataset.targets[:int(frac * train_length)]
+        train_dataset.data = train_dataset.data[:int(frac * train_length)]
+        test_dataset.targets = test_dataset.targets[:int(frac * test_length)]
+        test_dataset.data = test_dataset.data[:int(frac * test_length)]
         train_length = len(train_dataset)
         test_length = len(test_dataset)
 
     if opt['unbalanced']: 
         try:
-            num_classes = len(train_dataset.train_labels.unique())
+            num_classes = len(train_dataset.targets.unique())
         except Exception:
-            num_classes = len(np.unique(train_dataset.train_labels))
+            num_classes = len(np.unique(train_dataset.targets))
 
         class_labels = range(num_classes)
         sample_probs = torch.rand(num_classes)
-        idx_to_del = [i for i, label in enumerate(train_dataset.train_labels) 
+        idx_to_del = [i for i, label in enumerate(train_dataset.targets) 
                       if random.random() > sample_probs[label]]
         train_dataset_ = copy.deepcopy(train_dataset)
-        train_dataset.train_labels = np.delete(train_dataset_.train_labels, idx_to_del, axis=0)
-        train_dataset.train_data = np.delete(train_dataset_.train_data, idx_to_del, axis=0)
+        train_dataset.targets = np.delete(train_dataset_.targets, idx_to_del, axis=0)
+        train_dataset.data = np.delete(train_dataset_.data, idx_to_del, axis=0)
         del train_dataset_
 
 

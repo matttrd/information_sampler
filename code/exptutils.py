@@ -124,7 +124,7 @@ def build_filename(ctx):
             dconf[k] = opt[k]
 
     base_whilelist = ['dataset', 'arch']
-    blacklist = ['save', 'fl', 'tfl', 'dbl', 'o', 'source', '__doc__', 'j', 'print_freq']
+    blacklist = ['g','save', 'fl', 'tfl', 'dbl', 'o', 'source', '__doc__', 'j', 'print_freq']
     
     dconfc = dconf.copy()
     for k in dconf.keys():

@@ -481,6 +481,7 @@ def main_worker(opt):
         best_top1 = min(top1, best_top1)
 
         save_checkpoint({
+        	'opt': opt,
             'epoch': epoch + 1,
             'arch': opt['arch'],
             'state_dict': model.state_dict(),
