@@ -102,13 +102,12 @@ best_top1 = 0
 
 # for some reason, the db must me created in the global scope
 # that is there is not chance to select it easily (fix it)
-if ex.configurations[0]()['dbl']:
 # if ex.configurations[0]()['dbl']:
-    from sacred.observers import MongoObserver
-    from sacred.utils import apply_backspaces_and_linefeeds
-    #print('Creating database')
-    #ctx.ex.observers.append(MongoObserver.create())
-    ctx.ex.captured_out_filter = apply_backspaces_and_linefeeds
+from sacred.observers import MongoObserver
+from sacred.utils import apply_backspaces_and_linefeeds
+#print('Creating database')
+#ctx.ex.observers.append(MongoObserver.create())
+ctx.ex.captured_out_filter = apply_backspaces_and_linefeeds
 
 @data_ingredient.capture
 def init(name):

@@ -77,13 +77,15 @@ def load_data(name, source, shuffle, frac, perc, norm, opt):
     test_length = len(test_dataset)
 
     if perc > 0:
-        sd_idx = torch.load('sorted_datasets.pz')[name]
-        idx = sd_idx[:-int(frac * train_length)]
+        print('Dataset reduction of ', perc)
+        sd_idx = np.squeeze(torch.load('sorted_datasets.pz')[name])
+        idx = sd_idx[:-int(perc * train_length)]
         mask = np.ones(train_length, dtype=bool)
         mask[idx] = False
         train_dataset.targets = np.array(train_dataset.targets)[mask]
         train_dataset.data = np.array(train_dataset.data)[mask]
         train_length -= len(idx)
+        print('New Dataset length is ', train_length)
 
     if frac < 1:
         train_dataset.targets = train_dataset.targets[:int(frac * train_length)]
