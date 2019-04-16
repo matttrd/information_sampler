@@ -52,7 +52,7 @@ def main():
     errors = ClassErrorMeter(topk=[1])
 
     for i, (x,y) in enumerate(val_loader):
-        adversarial = attack(x.cpu().numpy()[0], y.cpu().numpy()[0], epsilon=6./255., binary_search=False)
+        adversarial = attack(x.cpu().numpy()[0], y.cpu().numpy()[0], epsilon=8./255., binary_search=2, iterations=20)
         pred = np.argmax(fmodel.predictions(adversarial))
         pred = torch.from_numpy(pred[np.newaxis, ...]).long()
         adv_conf_mat.add(pred.data, y.data)
