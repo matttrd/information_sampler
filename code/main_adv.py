@@ -100,7 +100,7 @@ def cfg():
     eps = 8
     k = 7
 
-best_top1 = 0
+best_top1 = 100
 
 # for some reason, the db must me created in the global scope
 # that is there is not chance to select it easily (fix it)
