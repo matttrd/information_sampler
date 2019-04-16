@@ -213,6 +213,9 @@ def runner(input, target, model, criterion, optimizer):
     k = ctx.opt['k']
     ell_inf_proj = lambda z,o: z.add_(-1,o).clamp_(-neps, neps).add_(o).clamp_(0,1)
     x = input.data.clone()
+    unif = torch.rand_like(x)
+    unif = unif * 2 * neps - neps #[-eps, eps]
+    x = torch.clamp(x + unif, min=0, max=1)
     x.requires_grad = True
 
     for j in range(ctx.opt['k']):
