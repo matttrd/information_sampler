@@ -494,10 +494,11 @@ class resnet18(nn.Module):
     name = 'resnet18'
     def __init__(self, opt):
         super(resnet18, self).__init__()
-        import resnet
+        # import resnet_nobn as rn
+        import resnet as rn
         # opt['wd'] = 1e-4
         #self.m = thv.models.resnet18(num_classes=get_num_classes(opt))        
-        self.m = resnet.ResNet18(num_classes=get_num_classes(opt))
+        self.m = rn.ResNet18(num_classes=get_num_classes(opt))
         self.N = num_parameters(self.m)
         s = '[%s] Num parameters: %d'%(self.name, self.N)
         # print(s)
@@ -511,8 +512,10 @@ class resnet50(nn.Module):
     def __init__(self, opt):
         super(resnet50, self).__init__()
         # opt['wd'] = 1e-4
+        import resnet as rn
         trs = opt.get('track_running_stats', track_running_stats)
-        self.m = thv.models.resnet50(num_classes=get_num_classes(opt))
+        # self.m = thv.models.resnet50(num_classes=get_num_classes(opt))
+        self.m = rn.ResNet50(num_classes=get_num_classes(opt))
         self.N = num_parameters(self.m)
         s = '[%s] Num parameters: %d'%(self.name, self.N)
         # print(s)
@@ -526,9 +529,9 @@ class resnet101(nn.Module):
     def __init__(self, opt):
         super(resnet101, self).__init__()
         # opt['wd'] = 1e-4
-        trs = opt.get('track_running_stats', track_running_stats)
-        self.m = thv.models.resnet101(num_classes=get_num_classes(opt))
-
+        import resnet as rn
+        # self.m = thv.models.resnet101(num_classes=get_num_classes(opt))
+        self.m = rn.ResNet101(num_classes=get_num_classes(opt))
         self.N = num_parameters(self.m)
         s = '[%s] Num parameters: %d'%(self.name, self.N)
         # print(s)
@@ -542,9 +545,9 @@ class resnet152(nn.Module):
     def __init__(self, opt):
         super(resnet152, self).__init__(num_classes=get_num_classes(opt))
         # opt['wd'] = 1e-4
-        trs = opt.get('track_running_stats', track_running_stats)
-        self.m = thv.models.resnet152(num_classes=get_num_classes(opt))
-
+        import resnet as rn
+        # self.m = thv.models.resnet152(num_classes=get_num_classes(opt))
+        self.m = rn.ResNet152(num_classes=get_num_classes(opt))
         self.N = num_parameters(self.m)
         s = '[%s] Num parameters: %d'%(self.name, self.N)
         # print(s)

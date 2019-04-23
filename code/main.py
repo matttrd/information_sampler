@@ -17,7 +17,7 @@ from torchnet.meter import ClassErrorMeter, ConfusionMeter, TimeMeter, AverageVa
 from exptutils import *
 #import torchvision.models as models
 import models
-from loader import data_ingredient, load_data 
+from loader import data_ingredient, load_data, get_dataset_len
 from sacred import Experiment
 import threading
 from hook import *
@@ -94,7 +94,9 @@ def cfg():
     # marker
     marker = ''
     unbalanced = False
-    sampler = 'default' # (default | our | ufoym )
+    sampler = 'default' # (default | invtunnel | tunnel | ufoym )
+    # tunneling temperature
+    unif_coeff = 0.1
     wufreq = 1 #weights sampler frequency
     topkw = 500 # number of weight to analyse (default 500)
 
@@ -132,14 +134,30 @@ def init(name):
 def cum_abs_diff(cumsum, x_prev, x_new):
     return cumsum + torch.abs(x_prev - x_new)
 
-def compute_weights(model, weights_loader):
+def compute_weights(outputs, targets, idx, criterion):
+    output = outputs.detach()
+    for i, index in enumerate(idx):
+        o = output[i].reshape(-1, output.shape[1])
+        ctx.complete_outputs[index] = criterion(o, targets[i].unsqueeze(0))
+        ctx.count[index] += 1
+
+    max_ = torch.max(ctx.complete_outputs)
+    
+    sign = -1
+    if ctx.opt['sampler'] == 'tunnel':
+        sign = 1
+    #Sampling is inversely proportional to the loss
+    S_prob = torch.exp(-sign * ctx.complete_outputs/(ctx.opt['unif_coeff'] * max_))
+    return S_prob
+
+def compute_weights_stats(model, weights_loader):
     opt = ctx.opt
     model.eval()
     weights = []
     target_list = []
     hist_list = []
     with torch.no_grad():
-        for batch_idx, (data, target) in enumerate(weights_loader):
+        for batch_idx, (data, target, _) in enumerate(weights_loader):
             data, target = data.cuda(opt['g']), target.cuda(opt['g'])
             output = model(data)
             output = output.squeeze()
@@ -204,7 +222,7 @@ def compute_weights(model, weights_loader):
     return weights
 
 @batch_hook(ctx, mode='train')
-def runner(input, target, model, criterion, optimizer):
+def runner(input, target, model, criterion, optimizer, idx):
     # compute output
         output = model(input)
         loss = criterion(output, target)
@@ -224,8 +242,12 @@ def runner(input, target, model, criterion, optimizer):
 
         # ctx.metrics.batch = stats
         ctx.metrics['avg'] = avg_stats
+        
+        model.eval()
+        S_prob = compute_weights(output, target, idx, criterion)
+        model.train()
         #ctx.images = input
-        return avg_stats
+        return avg_stats, S_prob
 
 @epoch_hook(ctx, mode='train')
 def train(train_loader, model, criterion, optimizer, epoch, opt):
@@ -238,7 +260,7 @@ def train(train_loader, model, criterion, optimizer, epoch, opt):
     model.train()
 
     # end = time.time()
-    for i, (input, target) in enumerate(train_loader):
+    for i, (input, target, idx) in enumerate(train_loader):
         # tmp var (for convenience)
 
         # if ctx.global_iters % n_iters == 0:
@@ -253,7 +275,9 @@ def train(train_loader, model, criterion, optimizer, epoch, opt):
         ctx.global_iters += 1
         input = input.cuda(opt['g'])
         target = target.cuda(opt['g'])
-        stats = runner(input, target, model, criterion, optimizer)
+        stats, S_prob = runner(input, target, model, criterion, optimizer, idx)
+        if opt['sampler'] == 'invtunnel' or opt['sampler'] == 'tunnel':
+            trainloader.sampler.weights = S_prob
 
         loss = stats['loss']
         top1 = stats['top1']
@@ -280,7 +304,7 @@ def validate(val_loader, model, criterion, opt):
 
     with torch.no_grad():
         end = time.time()
-        for i, (input, target) in enumerate(val_loader):
+        for i, (input, target, _) in enumerate(val_loader):
             input = input.cuda(opt['g'])
             target = target.cuda(opt['g'])
 
@@ -324,7 +348,7 @@ def clean_train(val_loader, model, criterion, opt):
 
     with torch.no_grad():
         end = time.time()
-        for i, (input, target) in enumerate(val_loader):
+        for i, (input, target, _) in enumerate(val_loader):
             input = input.cuda(opt['g'], non_blocking=True)
             target = target.cuda(opt['g'], non_blocking=True)
 
@@ -451,6 +475,14 @@ def main_worker(opt):
 
     ctx.counter = 0     # count the number of times weights are updated
 
+    #complete_outputs = torch.DoubleTensor(train_loader.sampler.weights).cuda(opt['g'])
+    complete_outputs = np.empty(get_dataset_len(opt['dataset']))
+    complete_outputs[:] = np.nan
+    complete_outputs = torch.from_numpy(complete_outputs).cuda(opt['g'])
+    count = torch.zeros_like(complete_outputs).cuda(opt['g'])
+    ctx.complete_outputs = complete_outputs
+    ctx.count = count
+
     if opt['evaluate']:
         #clean_train(clean_train_loader, model, criterion, opt)
         validate(val_loader, model, criterion, opt)
@@ -460,12 +492,12 @@ def main_worker(opt):
         ctx.epoch = epoch
         adjust_learning_rate(epoch)
 
-        if opt['sampler'] == 'our':
-            new_weights = compute_weights(model, weights_loader)
-            train_loader.sampler.weights = new_weights
-        else:
-            # compute dummy weights for visualization
-            _ = compute_weights(model, weights_loader)
+        # if opt['sampler'] == 'invtunnel':
+        #     new_weights = compute_weights(model, weights_loader)
+        #     train_loader.sampler.weights = new_weights
+        # else:
+        #     # compute dummy weights for visualization
+        #     _ = compute_weights_stats(model, weights_loader)
             
         # train for one epoch
         train(train_loader, model, criterion, optimizer, epoch, opt)

@@ -99,6 +99,7 @@ def cfg():
     topkw = 500 # number of weight to analyse (default 500)
     eps = 8
     k = 7
+    lp = 'linf'
 
 best_top1 = 100
 
@@ -208,25 +209,68 @@ def compute_weights(model, weights_loader):
 
 @batch_hook(ctx, mode='train')
 def runner(input, target, model, criterion, optimizer):
-    # compute output
-    neps = ctx.opt['eps']/255.
-    k = ctx.opt['k']
-    ell_inf_proj = lambda z,o: z.add_(-1,o).clamp_(-neps, neps).add_(o).clamp_(0,1)
+    
+    if ctx.opt['lp'] == 'linf+l2':
+        if ctx.i % 2:
+            lp = 'linf'
+            k = 8
+            neps = 8. / 255
+        else:
+            lp = 'l2'
+            k = 20
+            neps = 0.314
+    else:
+        lp = ctx.opt['lp']
+        k = ctx.opt['k']
+        neps = ctx.opt['eps']/255.
+
     x = input.data.clone()
-    unif = torch.rand_like(x)
-    unif = unif * 2 * neps - neps #[-eps, eps]
-    x = torch.clamp(x + unif, min=0, max=1)
-    x.requires_grad = True
+    if lp == 'linf':
+        #print('Linf')
+        ell_inf_proj = lambda z,o: z.add_(-1,o).clamp_(-neps, neps).add_(o).clamp_(0,1)
+        unif = torch.rand_like(x)
+        unif = unif * 2 * neps - neps #[-eps, eps]
+        x = torch.clamp(x + unif, min=0, max=1)
+        x.requires_grad = True
 
-    for j in range(ctx.opt['k']):
-        model.zero_grad()
-        output = model(x)
-        loss = criterion(output, target)
-        loss.backward()
-        x.data.add_(neps/k*2, torch.sign(x.grad.data))
-        ell_inf_proj(x.data, input.data)
+        for j in range(k):
+            model.zero_grad()
+            output = model(x)
+            loss = criterion(output, target)
+            loss.backward()
+            x.data.add_(neps/k*2, torch.sign(x.grad.data))
+            ell_inf_proj(x.data, input.data)
 
-    output = model(x)
+    elif lp == 'l2':
+        #print('L2')
+        def norm_divisor(x):
+            return x.flatten(start_dim=1).norm(dim=1).view(x.shape[0],1,1,1)
+
+        def ell_2_proj(v,x):
+            v.clamp_(0,1)
+            diff = v - x
+            norms = norm_divisor(diff)
+            normalized = diff/norms * torch.min(torch.tensor(neps).cuda(ctx.opt['g']), norms)
+            return x + normalized
+
+        unif = torch.rand_like(x)
+        unif = unif/norm_divisor(unif)
+        x = ell_2_proj(x + unif * neps, x)
+        x.requires_grad = True
+        for j in range(k):   
+            model.zero_grad()
+            output = model(x)
+            loss = criterion(output, target)
+            loss.backward()
+            g = x.grad.data
+            x.data.add_(neps/k*2, g / norm_divisor(g))
+            x.data = ell_2_proj(x.data, input.data)
+    
+    else:
+        raise ValueError('Norm not supported')
+
+    x.requires_grad = False
+    output = model(x.detach())
     loss = criterion(output, target)
     # measure accuracy and record loss
     ctx.errors.add(output.data, target.data)

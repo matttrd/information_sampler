@@ -185,6 +185,7 @@ class tfLogger(Hook):
             K = 10
             # oscillating samples
             _, indices = self.get_most_osc(ctx, K)
+
             images =  ctx.train_loader.dataset.data[indices.squeeze().cpu().numpy()]
 
             info = { 'osc_images':images }

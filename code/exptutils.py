@@ -126,6 +126,8 @@ def build_filename(ctx):
                 dconf['perc'] = opt['dataset']['perc']
             if opt['dataset']['norm'] > 0:
                 dconf['norm'] = opt['dataset']['norm']
+            if opt['dataset']['mode'] > 0:
+                dconf['mode'] = opt['dataset']['mode']
         else:
             dconf[k] = opt[k]
 
