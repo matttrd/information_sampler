@@ -99,6 +99,7 @@ def cfg():
     unif_coeff = 0.1
     wufreq = 1 #weights sampler frequency
     topkw = 500 # number of weight to analyse (default 500)
+    classes = None
 
 best_top1 = 0
 
@@ -153,15 +154,19 @@ def compute_weights(outputs, targets, idx, criterion):
 def compute_pixel_weight(model, images, targets, criterion):
     model.eval()
     x = images.clone()
+    x += 0.03 * torch.rand_like(x)
     x.requires_grad = True
     output = model(x)
     loss = criterion(output, targets)
     loss.backward()
     g = x.grad.data
-    w = g.norm(dim=1).abs()
-    min_ = w.view(x.shape[0], -1).min(1)[0].view(x.shape[0],1,1).expand(x.shape[0], x.shape[-2], x.shape[-1])
-    max_ = w.view(x.shape[0], -1).max(1)[0].view(x.shape[0],1,1).expand(x.shape[0], x.shape[-2], x.shape[-1])
-    w = 1 - (w - min_) / (max_ - min_)
+    w = g# / g.flatten(start_dim=1).norm(dim=1).view(x.shape[0],1,1,1)
+    w = torch.exp(w)
+    #min_ = w.view(x.shape[0], -1).min(1)[0].view(x.shape[0],1,1).expand(x.shape[0], x.shape[-2], x.shape[-1])
+    #max_ = w.view(x.shape[0], -1).max(1)[0].view(x.shape[0],1,1).expand(x.shape[0], x.shape[-2], x.shape[-1])
+    #w = 1 - (w - min_) / (max_ - min_)
+    #w = (w - min_) / (max_ - min_)
+    
     model.train()
     return w
 
@@ -239,10 +244,16 @@ def compute_weights_stats(model, weights_loader):
 @batch_hook(ctx, mode='train')
 def runner(input, target, model, criterion, optimizer, idx):
     # compute output
-        pw = compute_pixel_weight(model, input, target, criterion)
-        uw = torch.rand_like(pw)
-        mask = pw > uw
-        masked_input = input * mask.unsqueeze(1).expand_as(input).float()
+        
+        if ctx.epoch >= 0:
+            pw = compute_pixel_weight(model, input, target, criterion)
+            #uw = torch.rand_like(pw)
+            #mask = pw > uw
+        else:
+            pw = torch.ones(input.shape[0],input.shape[-2],input.shape[-1]).cuda()
+        mask = pw
+        #masked_input = input * mask.unsqueeze(1).expand_as(input).float()
+        masked_input = input * mask.float()
         output = model(masked_input)
         loss = criterion(output, target)
         # measure accuracy and record loss

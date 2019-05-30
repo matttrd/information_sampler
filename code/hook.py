@@ -5,6 +5,7 @@ import numpy as np
 import scipy.misc 
 from models import get_num_classes
 import torch
+from torch.utils.data import Subset
 
 class Hook():
     "Base class for hooks (loggers for now)"
@@ -103,6 +104,26 @@ class tfLogger(Hook):
     def get_topk(self, ctx, k, largest=True):
         return torch.topk(ctx.cum_sum, k, largest=largest)
 
+    def get_images(self, ctx, indices):
+        if 'imagenet' not in ctx.opt['dataset']:
+            dt = ctx.train_loader.dataset
+            if isinstance(dt, Subset):
+                images =  dt.dataset.data.data[indices.squeeze().cpu().numpy()]
+            else:
+                images =  dt.data.data[indices.squeeze().cpu().numpy()]
+        else: # ImageFolder
+            dt = ctx.train_loader.dataset
+            if isinstance(dt, Subset):
+                dt = dt.dataset.data
+            else:
+                dt = dt.data
+            idx = indices.squeeze().cpu().numpy().tolist()
+            tmp = [dt.samples[i] for i in idx]
+            paths = list(map(lambda x: x[0], tmp))
+            images = [np.array(dt.loader(p)) for p in paths]
+            images = np.stack(images)
+            images = images.transpose(0,3,1,2)
+        return images
 
     def on_train_begin(self, ctx):
         global tf
@@ -176,40 +197,43 @@ class tfLogger(Hook):
 
 
 
-        if mode is 'train':
-            num_classes = get_num_classes(ctx.opt)
-            self.logger[mode].histo_summary('weights_hist', None, ctx.epoch, numpy_hist=ctx.histograms['total'][0])
-            for cl in range(num_classes):
-                self.logger[mode].histo_summary('weights_hist_cl_' + str(cl), None, ctx.epoch, numpy_hist=ctx.histograms[str(cl)][0])
+        # if mode is 'train':
 
-            K = 10
-            # oscillating samples
-            _, indices = self.get_most_osc(ctx, K)
+        # info = { 'images':ctx.images}
+        # for tag, images in info.items():
+        #     self.logger[mode].image_summary(tag, images, ctx.i+1)
 
-            images =  ctx.train_loader.dataset.data[indices.squeeze().cpu().numpy()]
+        #     num_classes = get_num_classes(ctx.opt)
+        #     self.logger[mode].histo_summary('weights_hist', None, ctx.epoch, numpy_hist=ctx.histograms['total'][0])
+        #     for cl in range(num_classes):
+        #         self.logger[mode].histo_summary('weights_hist_cl_' + str(cl), None, ctx.epoch, numpy_hist=ctx.histograms[str(cl)][0])
 
-            info = { 'osc_images':images }
+        #     K = 10
+        #     # oscillating samples
+        #     _, indices = self.get_most_osc(ctx, K)
 
-            for tag, images in info.items():
-                self.logger[mode].image_summary(tag, images, ctx.epoch)
+        #     images = self.get_images(ctx, indices)
+        #     info = { 'osc_images':images }
 
-            # difficult samples
-            _, indices = self.get_topk(ctx, K)
-            images =  ctx.train_loader.dataset.data[indices.squeeze().cpu().numpy()]
+        #     for tag, images in info.items():
+        #         self.logger[mode].image_summary(tag, images, ctx.epoch)
 
-            info = { 'difficult_images':images}
+        #     # difficult samples
+        #     _, indices = self.get_topk(ctx, K)
+        #     images = self.get_images(ctx, indices)
+        #     info = { 'difficult_images':images}
 
-            for tag, images in info.items():
-                self.logger[mode].image_summary(tag, images, ctx.epoch)
+        #     for tag, images in info.items():
+        #         self.logger[mode].image_summary(tag, images, ctx.epoch)
 
-            # easy samples
-            _, indices = self.get_topk(ctx, K, largest=False)
-            images =  ctx.train_loader.dataset.data[indices.squeeze().cpu().numpy()]
+        #     # easy samples
+        #     _, indices = self.get_topk(ctx, K, largest=False)
+            
+        #     images = self.get_images(ctx, indices)
+        #     info = { 'easy_images':images}
 
-            info = { 'easy_images':images}
-
-            for tag, images in info.items():
-                self.logger[mode].image_summary(tag, images, ctx.epoch)
+        #     for tag, images in info.items():
+        #         self.logger[mode].image_summary(tag, images, ctx.epoch)
 
 
 class dbLogger(Hook):
@@ -251,6 +275,8 @@ class fLogger(Hook):
                 ss = dict(e=ctx.epoch, i=0, train_clean=True)
             else:
                 ss = dict(e=ctx.epoch, i=0, val=True)
+            if len(out) > 1 and not isinstance(out, dict):
+                out = out[0]
             ss.update(**out)
             ctx.ex.logger.info('[LOG] ' + json.dumps(ss))
     

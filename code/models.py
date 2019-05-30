@@ -13,7 +13,8 @@ track_running_stats = True
 
 def get_num_classes(opt):
     d = dict(mnist=10, svhn=10, cifar10=10, cifar20=20,
-            cifar100=100, imagenet32=1000, imagenet=1000, halfmnist=10)
+            cifar100=100, imagenet32=1000, imagenet=1000, 
+            tinyimagenet64=200, halfmnist=10)
     d['cifar10.1']=10
     if not opt['dataset'] in d:
         assert False, 'Unknown dataset: %s'%opt['dataset']
@@ -395,10 +396,10 @@ class wideresnet(nn.Module):
 
         def block(ci, co, s, p=0.):
             h = nn.Sequential(
-                    bn2(ci,track_running_stats=track_running_stats),
+                    bn2(ci),
                     nn.ReLU(inplace=True),
                     nn.Conv2d(ci, co, kernel_size=3, stride=s, padding=1, bias=False),
-                    bn2(co,track_running_stats=track_running_stats),
+                    bn2(co),
                     nn.ReLU(inplace=True),
                     nn.Dropout(p),
                     nn.Conv2d(co, co, kernel_size=3, stride=1, padding=1, bias=False))
@@ -413,11 +414,12 @@ class wideresnet(nn.Module):
             return nn.Sequential(*ls)
 
         self.m = nn.Sequential(
-                nn.Conv2d(3, nc[0], kernel_size=3, stride=1, padding=1, bias=False),
+                nn.Conv2d(3, nc[0], kernel_size=5, stride=2, padding=2, bias=False)
+                if 'imagenet' in opt['dataset'] else nn.Conv2d(3, nc[0], kernel_size=3, stride=1, padding=1, bias=False),
                 netblock(n, nc[0], nc[1], block, 1, d),
                 netblock(n, nc[1], nc[2], block, 2, d),
                 netblock(n, nc[2], nc[3], block, 2, d),
-                bn2(nc[3],track_running_stats=track_running_stats),
+                bn2(nc[3]),
                 nn.ReLU(inplace=True),
                 nn.AvgPool2d(8),
                 View(nc[3]),
@@ -513,7 +515,6 @@ class resnet50(nn.Module):
         super(resnet50, self).__init__()
         # opt['wd'] = 1e-4
         import resnet as rn
-        trs = opt.get('track_running_stats', track_running_stats)
         # self.m = thv.models.resnet50(num_classes=get_num_classes(opt))
         self.m = rn.ResNet50(num_classes=get_num_classes(opt))
         self.N = num_parameters(self.m)
@@ -543,7 +544,7 @@ class resnet101(nn.Module):
 class resnet152(nn.Module):
     name = 'resnet152'
     def __init__(self, opt):
-        super(resnet152, self).__init__(num_classes=get_num_classes(opt))
+        super().__init__()
         # opt['wd'] = 1e-4
         import resnet as rn
         # self.m = thv.models.resnet152(num_classes=get_num_classes(opt))

@@ -96,10 +96,11 @@ def cfg():
     unbalanced = False
     sampler = 'default' # (default | invtunnel | tunnel | ufoym )
     # tunneling temperature
-    unif_coeff = 0.1
+    temperature = 1.
     wufreq = 1 #weights sampler frequency
     topkw = 500 # number of weight to analyse (default 500)
-
+    classes = None
+    
 best_top1 = 0
 
 # for some reason, the db must me created in the global scope
@@ -123,7 +124,7 @@ def init(name):
     ctx.metrics = dict()
     ctx.metrics['best_top1'] = best_top1
     ctx.hooks = None
-    ctx.top_weights = {'indices': [], 'values': []}
+    ctx.toweights = {'indices': [], 'values': []}
     ctx.init = 0
     # if ctx.opt['sampler'] == 'our':
     #     ctx.weights_logger = create_basic_logger(ctx, 'statistics', idx=0)
@@ -141,43 +142,43 @@ def compute_weights(outputs, targets, idx, criterion):
         ctx.complete_outputs[index] = criterion(o, targets[i].unsqueeze(0))
         ctx.count[index] += 1
 
-    max_ = torch.max(ctx.complete_outputs)
-    
-    sign = -1
     if ctx.opt['sampler'] == 'tunnel':
-        sign = 1
-    #Sampling is inversely proportional to the loss
-    S_prob = torch.exp(-sign * ctx.complete_outputs/(ctx.opt['unif_coeff'] * max_))
+        S_prob = torch.exp(-ctx.complete_outputs/ctx.opt['temperature'])
+    else:
+        S_prob = 1 - torch.exp(-ctx.complete_outputs/ctx.opt['temperature'])
     return S_prob
 
-def compute_weights_stats(model, weights_loader):
+crit = nn.CrossEntropyLoss(reduce=False)
+def compute_weights_stats(model, criterion, weights_loader):
     opt = ctx.opt
     model.eval()
     weights = []
+    s_weights = []
     target_list = []
     hist_list = []
+    
     with torch.no_grad():
-        for batch_idx, (data, target, _) in enumerate(weights_loader):
+        for batch_idx, (data, target, idx) in enumerate(weights_loader):
             data, target = data.cuda(opt['g']), target.cuda(opt['g'])
             output = model(data)
-            output = output.squeeze()
-            softmax = F.softmax(output, dim=1).cpu().numpy()
-            row = np.arange(len(target))
-            col = target.cpu().numpy()
-            weights.append(np.ones_like(softmax[row, col]) - softmax[row, col])
+            loss = crit(output, target)
+            if ctx.opt['sampler'] == 'tunnel':
+                w = torch.exp(-loss / ctx.opt['temperature'] )
+            else:
+                w = 1 - torch.exp(-loss / ctx.opt['temperature'] )
+
+            weights.append(w)
             target_list.append(target)
 
     targets_tensor = torch.cat(target_list)
-    weights = np.hstack(weights).squeeze()
-    weights = torch.FloatTensor(weights)
-    weights = weights.cuda(opt['g'])
+    weights = torch.cat(weights)
     sorted_, indices = torch.sort(weights)
     topk = ctx.opt['topkw']
     topk_idx = indices[:topk]
     topk_value = sorted_[:topk]
     num_classes = output.shape[1]
-    ctx.top_weights['indices'].append(topk_idx.data.cpu().numpy())
-    ctx.top_weights['values'].append(topk_value.data.cpu().numpy())
+    ctx.toweights['indices'].append(topk_idx.data.cpu().numpy())
+    ctx.toweights['values'].append(topk_value.data.cpu().numpy())
     
     if ctx.init == 0:
         ctx.histograms = {str(k): [] for k in range(num_classes)}
@@ -203,6 +204,7 @@ def compute_weights_stats(model, weights_loader):
         
         # initialize sample mean of the weights
         ctx.sample_mean = torch.zeros([1, len(weights_loader.dataset)]).cuda(opt['g'])     
+        ctx.sample_mean = torch.zeros_like(ctx.sample_mean)
         # here will be stored weights of the last update
         ctx.old_weights = torch.zeros([1, len(weights_loader.dataset)]).cuda(opt['g'])
         ctx.cum_sum_diff = torch.zeros_like(ctx.old_weights).cuda(opt['g'])   
@@ -210,7 +212,7 @@ def compute_weights_stats(model, weights_loader):
 
     ctx.counter += 1
     ctx.weights = weights
-    ctx.sample_mean = ((ctx.counter -1) / ctx.counter) * ctx.sample_mean + (weights / ctx.counter)
+    ctx.sample_mean = ((ctx.counter - 1) / ctx.counter) * ctx.sample_mean + (weights / ctx.counter)
     difference = weights - ctx.old_weights
     ctx.cum_sum_diff = cum_abs_diff(ctx.cum_sum, ctx.old_weights, weights)
     ctx.cum_sum += torch.abs(weights)
@@ -226,6 +228,7 @@ def runner(input, target, model, criterion, optimizer, idx):
     # compute output
         output = model(input)
         loss = criterion(output, target)
+
         # measure accuracy and record loss
         ctx.errors.add(output.data, target.data)
         ctx.losses.add(loss.item())
@@ -263,21 +266,13 @@ def train(train_loader, model, criterion, optimizer, epoch, opt):
     for i, (input, target, idx) in enumerate(train_loader):
         # tmp var (for convenience)
 
-        # if ctx.global_iters % n_iters == 0:
-        #     if opt['sampler'] == 'our':
-        #         new_weights = compute_weights(model, weights_loader)
-        #         train_loader.sampler.weights = new_weights
-        #     else:
-        #         # compute dummy weights for visualization
-        #         _ = compute_weights(model, weights_loader)
-
         ctx.i = i
         ctx.global_iters += 1
         input = input.cuda(opt['g'])
         target = target.cuda(opt['g'])
         stats, S_prob = runner(input, target, model, criterion, optimizer, idx)
         if opt['sampler'] == 'invtunnel' or opt['sampler'] == 'tunnel':
-            trainloader.sampler.weights = S_prob
+            train_loader.sampler.weights = S_prob
 
         loss = stats['loss']
         top1 = stats['top1']
@@ -439,8 +434,8 @@ def main_worker(opt):
         model = model.cuda(opt['g'])
     else:
         model = torch.nn.DataParallel(model, 
-                        device_ids=range(opt['g'], opt['g'] + opt['ng'],
-                        output_device=opt['g'])).cuda()
+                        device_ids=range(opt['g'], opt['g'] + opt['ng']),
+                        output_device=opt['g']).cuda()
 
     # define loss function (criterion) and optimizer
     criterion = nn.CrossEntropyLoss().cuda(opt['g'])
@@ -476,9 +471,7 @@ def main_worker(opt):
     ctx.counter = 0     # count the number of times weights are updated
 
     #complete_outputs = torch.DoubleTensor(train_loader.sampler.weights).cuda(opt['g'])
-    complete_outputs = np.empty(get_dataset_len(opt['dataset']))
-    complete_outputs[:] = np.nan
-    complete_outputs = torch.from_numpy(complete_outputs).cuda(opt['g'])
+    complete_outputs = torch.ones(get_dataset_len(opt['dataset'])).cuda(opt['g'])
     count = torch.zeros_like(complete_outputs).cuda(opt['g'])
     ctx.complete_outputs = complete_outputs
     ctx.count = count
@@ -492,13 +485,13 @@ def main_worker(opt):
         ctx.epoch = epoch
         adjust_learning_rate(epoch)
 
-        # if opt['sampler'] == 'invtunnel':
-        #     new_weights = compute_weights(model, weights_loader)
+        # if opt['sampler'] == 'invtunnel' or opt['sampler'] == 'tunnel':
+        #     new_weights = compute_weights_stats(model, criterion, weights_loader)
         #     train_loader.sampler.weights = new_weights
         # else:
         #     # compute dummy weights for visualization
-        #     _ = compute_weights_stats(model, weights_loader)
-            
+        if ctx.opt['save']:
+        	_ = compute_weights_stats(model, criterion, weights_loader) 
         # train for one epoch
         train(train_loader, model, criterion, optimizer, epoch, opt)
 
@@ -536,9 +529,9 @@ def main():
         #               'from checkpoints.')
     main_worker(ctx.opt)
 
-    if not ctx.opt['evaluate']:
-        with open(os.path.join(ctx.inp_w_dir, 'top_weights.pickle'), 'wb') as handle:
-            pkl.dump(ctx.top_weights, handle, protocol=pkl.HIGHEST_PROTOCOL)
+    if not ctx.opt['evaluate'] and ctx.opt['save']:
+        with open(os.path.join(ctx.inp_w_dir, 'toweights.pickle'), 'wb') as handle:
+            pkl.dump(ctx.toweights, handle, protocol=pkl.HIGHEST_PROTOCOL)
         with open(os.path.join(ctx.inp_w_dir, 'histograms.pickle'), 'wb') as handle:
             pkl.dump(ctx.histograms, handle, protocol=pkl.HIGHEST_PROTOCOL)
         with open(os.path.join(ctx.inp_w_dir, 'weights_means.pickle'), 'wb') as handle:

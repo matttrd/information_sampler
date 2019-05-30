@@ -29,6 +29,10 @@ class MyDataset(Dataset):
             self.data =  datasets.CIFAR10(source, train=train, download=download, transform=transform)
         elif data == 'cifar100':
             self.data =  datasets.CIFAR100(source, train=train, download=download, transform=transform)
+        elif data == 'tinyimagenet64':
+            source = source + 'tiny-imagenet-200/'
+            ddir = source + 'train/' if train else source+'val/'
+            self.data = datasets.ImageFolder(ddir, transform=transform)
         else:
             print('Only CIFAR 10/100 allowed!')
 
@@ -78,6 +82,21 @@ def load_data(name, source, shuffle, frac, perc, mode, norm, opt):
             return None, test_loader, None, None
         else:
             raise ValueError("cifar10.1 can be used only in evaluation mode")
+
+    elif name == 'tinyimagenet64':
+        transform_train = transforms.Compose([
+            transforms.RandomResizedCrop(64),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)) if norm else
+                 transforms.Normalize((0, 0, 0), (1, 1, 1))
+        ])
+        transforms_test = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)) if norm else
+                 transforms.Normalize((0, 0, 0), (1, 1, 1))
+        ])
+
     else:
         raise NotImplementedError
     
@@ -107,7 +126,7 @@ def load_data(name, source, shuffle, frac, perc, mode, norm, opt):
     test_length = len(test_dataset)
 
     indices = np.arange(0,train_length)
-
+    num_classes = get_num_classes(opt)
     if perc > 0:
         print('Dataset reduction of ', perc)
         sd_idx = np.squeeze(torch.load('sorted_datasets.pz')[name])
@@ -134,29 +153,51 @@ def load_data(name, source, shuffle, frac, perc, mode, norm, opt):
         indices = indices[:int(frac * train_length)]
         train_dataset = Subset(train_dataset, indices)
         train_length = len(train_dataset)
-        # train_dataset.targets = train_dataset.targets[:int(frac * train_length)]
-        # train_dataset.data = train_dataset.data[:int(frac * train_length)]
-        # test_dataset.targets = test_dataset.targets[:int(frac * test_length)]
-        # test_dataset.data = test_dataset.data[:int(frac * test_length)]
-        # train_length = len(train_dataset)
-        # test_length = len(test_dataset)
+
+    if opt['classes'] is not None:
+        sclasses = opt['classes']
+        num_classes = len(opt['classes'])
+        
+        def reduce_dataset(dataset, classes):
+            # remove all classes but the two
+            if isinstance(dataset, Subset):
+                dataset = dataset.dataset
+            
+            labels = dataset.data.targets
+            indices = np.arange(0,len(dataset.data))
+
+            selector = list(map(lambda x: x in classes, labels))
+            indices = indices[selector]
+            dataset = Subset(dataset, indices)
+            return dataset, indices
+        
+        train_dataset, ind = reduce_dataset(train_dataset, sclasses)
+        test_dataset, _ = reduce_dataset(test_dataset, sclasses)
+        clean_train_dataset, _ = reduce_dataset(clean_train_dataset, sclasses)
+        train_length = len(train_dataset)
+
+    
 
     if opt['unbalanced']: 
-        num_classes = get_num_classes(opt)
         class_labels = range(num_classes)
         sample_probs = torch.rand(num_classes)
-        
-        idx_to_del = [i for i, label in enumerate(train_dataset.data.targets) 
-                      if random.random() > sample_probs[label]]
+
+        if opt['classes']:
+            mapper = dict(zip(opt['classes'], list(range(num_classes))))
+        else:
+            mapper = dict(zip(list(range(num_classes)), list(range(num_classes))))
+        # if isinstance(train_dataset, Subset):
+        #     train_dataset = train_dataset.dataset
+
+        idx_to_del = [i for i, (_, label, idx) in enumerate(train_dataset)
+                      if 0.7*random.random() > sample_probs[mapper[label]]]
+
         mask = np.ones(train_length, dtype=bool)
+        indices = np.arange(0,train_length)
         mask[idx_to_del] = False
         indices = indices[mask]
         train_dataset = Subset(train_dataset, indices)
-        train_length = len(train_dataset)         
-        # train_dataset_ = copy.deepcopy(train_dataset)
-        # train_dataset.targets = np.delete(train_dataset_.targets, idx_to_del, axis=0)
-        # train_dataset.data = np.delete(train_dataset_.data, idx_to_del, axis=0)
-        # del train_dataset_
+        train_length = len(train_dataset)   
 
     weights_loader = torch.utils.data.DataLoader(train_dataset, batch_size=opt['b'], shuffle=False, pin_memory=True) # used for the computation of the weights
     if opt['sampler'] == 'ufoym':
@@ -185,5 +226,5 @@ def load_data(name, source, shuffle, frac, perc, mode, norm, opt):
     return train_loader, test_loader, clean_train_loader, weights_loader
 
 def get_dataset_len(name):
-    d = dict(cifar10=50000)
+    d = dict(cifar10=50000, tinyimagenet64=100000)
     return d[name]

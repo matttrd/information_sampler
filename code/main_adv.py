@@ -13,6 +13,7 @@ import torch.nn.parallel
 import torch.backends.cudnn as cudnn
 import torch.optim
 import torch.utils.data
+import numpy as np
 from torchnet.meter import ClassErrorMeter, ConfusionMeter, TimeMeter, AverageValueMeter
 from exptutils import *
 #import torchvision.models as models
@@ -97,9 +98,10 @@ def cfg():
     sampler = 'default' # (default | our | ufoym )
     wufreq = 1 #weights sampler frequency
     topkw = 500 # number of weight to analyse (default 500)
-    eps = 8
-    k = 7
+    eps = 0
+    k = 1
     lp = 'linf'
+    classes = None
 
 best_top1 = 100
 
@@ -143,7 +145,7 @@ def compute_weights(model, weights_loader):
     target_list = []
     hist_list = []
     with torch.no_grad():
-        for batch_idx, (data, target) in enumerate(weights_loader):
+        for batch_idx, (data, target, _) in enumerate(weights_loader):
             data, target = data.cuda(opt['g']), target.cuda(opt['g'])
             output = model(data)
             output = output.squeeze()
@@ -209,68 +211,74 @@ def compute_weights(model, weights_loader):
 
 @batch_hook(ctx, mode='train')
 def runner(input, target, model, criterion, optimizer):
-    
-    if ctx.opt['lp'] == 'linf+l2':
-        if ctx.i % 2:
-            lp = 'linf'
-            k = 8
-            neps = 8. / 255
+    if ctx.opt['eps'] > 0 and ctx.opt['k'] > 0:
+        if ctx.opt['lp'] == 'linf+l2':
+            if ctx.i % 2:
+                lp = 'linf'
+                k = 8
+                neps = 8. / 255
+            else:
+                lp = 'l2'
+                k = 20
+                neps = 0.314
         else:
-            lp = 'l2'
-            k = 20
-            neps = 0.314
+            lp = ctx.opt['lp']
+            k = ctx.opt['k']
+            neps = ctx.opt['eps']/255.
+
+        x = input.data.clone().detach()
+        if lp == 'linf':
+            #print('Linf')
+            ell_inf_proj = lambda z,o: z.add_(-1,o).clamp_(-neps, neps).add_(o).clamp_(0,1)
+            unif = torch.rand_like(x)
+            unif = unif * 2 * neps - neps #[-eps, eps]
+            x = torch.clamp(x + unif, min=0, max=1)
+            x.requires_grad = True
+
+            for j in range(k):
+                model.zero_grad()
+                output = model(x)
+                loss = criterion(output, target)
+                # if loss.item() > 0.75 * np.log(output.shape[1]):
+                #         break
+                loss.backward()
+                x.data.add_(neps/k*2, torch.sign(x.grad.data))
+                ell_inf_proj(x.data, input.data)
+
+        elif lp == 'l2':
+            #print('L2')
+            def norm_divisor(x):
+                return x.flatten(start_dim=1).norm(dim=1).view(x.shape[0],1,1,1)
+
+            def ell_2_proj(v,x):
+                v.clamp_(0,1)
+                diff = v - x
+                norms = norm_divisor(diff)
+                normalized = diff/norms * torch.min(torch.tensor(neps).cuda(ctx.opt['g']), norms)
+                return x + normalized
+
+            unif = torch.rand_like(x)
+            unif = unif/norm_divisor(unif)
+            x = ell_2_proj(x + unif * neps, x)
+            x.requires_grad = True
+            for j in range(k):   
+                model.zero_grad()
+                output = model(x)
+                loss = criterion(output, target)
+                # if loss.item() > 0.75 * np.log(output.shape[1]):
+                #         break
+                loss.backward()
+                g = x.grad.data
+                x.data.add_(neps/k*2, g / norm_divisor(g))
+                x.data = ell_2_proj(x.data, input.data)
+        
+        else:
+            raise ValueError('Norm not supported')
+
+        x.requires_grad = False
+        output = model(x)
     else:
-        lp = ctx.opt['lp']
-        k = ctx.opt['k']
-        neps = ctx.opt['eps']/255.
-
-    x = input.data.clone()
-    if lp == 'linf':
-        #print('Linf')
-        ell_inf_proj = lambda z,o: z.add_(-1,o).clamp_(-neps, neps).add_(o).clamp_(0,1)
-        unif = torch.rand_like(x)
-        unif = unif * 2 * neps - neps #[-eps, eps]
-        x = torch.clamp(x + unif, min=0, max=1)
-        x.requires_grad = True
-
-        for j in range(k):
-            model.zero_grad()
-            output = model(x)
-            loss = criterion(output, target)
-            loss.backward()
-            x.data.add_(neps/k*2, torch.sign(x.grad.data))
-            ell_inf_proj(x.data, input.data)
-
-    elif lp == 'l2':
-        #print('L2')
-        def norm_divisor(x):
-            return x.flatten(start_dim=1).norm(dim=1).view(x.shape[0],1,1,1)
-
-        def ell_2_proj(v,x):
-            v.clamp_(0,1)
-            diff = v - x
-            norms = norm_divisor(diff)
-            normalized = diff/norms * torch.min(torch.tensor(neps).cuda(ctx.opt['g']), norms)
-            return x + normalized
-
-        unif = torch.rand_like(x)
-        unif = unif/norm_divisor(unif)
-        x = ell_2_proj(x + unif * neps, x)
-        x.requires_grad = True
-        for j in range(k):   
-            model.zero_grad()
-            output = model(x)
-            loss = criterion(output, target)
-            loss.backward()
-            g = x.grad.data
-            x.data.add_(neps/k*2, g / norm_divisor(g))
-            x.data = ell_2_proj(x.data, input.data)
-    
-    else:
-        raise ValueError('Norm not supported')
-
-    x.requires_grad = False
-    output = model(x.detach())
+        output = model(input)
     loss = criterion(output, target)
     # measure accuracy and record loss
     ctx.errors.add(output.data, target.data)
@@ -288,7 +296,7 @@ def runner(input, target, model, criterion, optimizer):
 
     # ctx.metrics.batch = stats
     ctx.metrics['avg'] = avg_stats
-    #ctx.images = input
+    #ctx.images = x[:10].cpu().numpy()
     return avg_stats
 
 @epoch_hook(ctx, mode='train')
@@ -300,9 +308,8 @@ def train(train_loader, model, criterion, optimizer, epoch, opt):
 
     # switch to train mode
     model.train()
-
     # end = time.time()
-    for i, (input, target) in enumerate(train_loader):
+    for i, (input, target, _) in enumerate(train_loader):
         # tmp var (for convenience)
 
         # if ctx.global_iters % n_iters == 0:
@@ -344,7 +351,7 @@ def validate(val_loader, model, criterion, opt):
 
     with torch.no_grad():
         end = time.time()
-        for i, (input, target) in enumerate(val_loader):
+        for i, (input, target, _) in enumerate(val_loader):
             input = input.cuda(opt['g'])
             target = target.cuda(opt['g'])
 
@@ -388,15 +395,26 @@ def clean_train(val_loader, model, criterion, opt):
 
     with torch.no_grad():
         end = time.time()
-        for i, (input, target) in enumerate(val_loader):
+        for i, (input, target, _) in enumerate(val_loader):
             input = input.cuda(opt['g'], non_blocking=True)
             target = target.cuda(opt['g'], non_blocking=True)
 
+            k = ctx.opt['k']
+            neps = ctx.opt['eps']/255.
+
+
+            ell_inf_proj = lambda z,o: z.add_(-1,o).clamp_(-neps, neps).add_(o).clamp_(0,1)
+            unif = torch.rand_like(input)
+            unif = unif * 2 * neps - neps #[-eps, eps]
+            x = torch.clamp(input + unif, min=0, max=1)
+            x.requires_grad = True
+
+
             # compute output
-            output = model(input)
+            output = model(input.detach())
             loss = criterion(output, target)
 
-            errors.add(output, target)
+            errors.add(output.data, target)
             losses.add(loss.item())
          
             loss = losses.value()[0]
@@ -415,6 +433,7 @@ def clean_train(val_loader, model, criterion, opt):
 
         print(' * Err@1 {top1:.3f}'
               .format(top1=top1))
+
     stats = {'loss': loss, 'top1': top1}
     ctx.metrics = stats
     ctx.images = input
@@ -479,8 +498,8 @@ def main_worker(opt):
         model = model.cuda(opt['g'])
     else:
         model = torch.nn.DataParallel(model, 
-                        device_ids=range(opt['g'], opt['g'] + opt['ng'],
-                        output_device=opt['g'])).cuda()
+                        device_ids=range(opt['g'], opt['g'] + opt['ng']),
+                        output_device=opt['g']).cuda()
 
     # define loss function (criterion) and optimizer
     criterion = nn.CrossEntropyLoss().cuda(opt['g'])
@@ -524,12 +543,12 @@ def main_worker(opt):
         ctx.epoch = epoch
         adjust_learning_rate(epoch)
 
-        if opt['sampler'] == 'our':
-            new_weights = compute_weights(model, weights_loader)
-            train_loader.sampler.weights = new_weights
-        else:
-            # compute dummy weights for visualization
-            _ = compute_weights(model, weights_loader)
+        # if opt['sampler'] == 'our':
+        #     new_weights = compute_weights(model, weights_loader)
+        #     train_loader.sampler.weights = new_weights
+        # else:
+        #     # compute dummy weights for visualization
+        #     _ = compute_weights(model, weights_loader)
             
         # train for one epoch
         train(train_loader, model, criterion, optimizer, epoch, opt)
@@ -544,6 +563,7 @@ def main_worker(opt):
         best_top1 = min(top1, best_top1)
 
         save_checkpoint({
+            'opt': opt,
             'epoch': epoch + 1,
             'arch': opt['arch'],
             'state_dict': model.state_dict(),
@@ -568,19 +588,19 @@ def main():
     main_worker(ctx.opt)
 
 
-    with open(os.path.join(ctx.inp_w_dir, 'top_weights.pickle'), 'wb') as handle:
-        pkl.dump(ctx.top_weights, handle, protocol=pkl.HIGHEST_PROTOCOL)
-    with open(os.path.join(ctx.inp_w_dir, 'histograms.pickle'), 'wb') as handle:
-        pkl.dump(ctx.histograms, handle, protocol=pkl.HIGHEST_PROTOCOL)
-    with open(os.path.join(ctx.inp_w_dir, 'weights_means.pickle'), 'wb') as handle:
-        pkl.dump(ctx.sample_mean.cpu().numpy(), handle, protocol=pkl.HIGHEST_PROTOCOL)
-    # concatenate weights differences
-    weights_diff = []
-    for i in range(1, ctx.counter + 1):
-        name = 'weights_differences_' + str(i) + '.pickle'
-        weights_diff.append(np.load(os.path.join(ctx.inp_w_dir, 'tmp', name)))
-    weights_diff = np.vstack(weights_diff)
-    with open(os.path.join(ctx.inp_w_dir, 'weights_differences.pickle'), 'wb') as handle:
-        pkl.dump(weights_diff, handle, protocol=pkl.HIGHEST_PROTOCOL)
-    shutil.rmtree(os.path.join(ctx.inp_w_dir, 'tmp'))
+    # with open(os.path.join(ctx.inp_w_dir, 'top_weights.pickle'), 'wb') as handle:
+    #     pkl.dump(ctx.top_weights, handle, protocol=pkl.HIGHEST_PROTOCOL)
+    # with open(os.path.join(ctx.inp_w_dir, 'histograms.pickle'), 'wb') as handle:
+    #     pkl.dump(ctx.histograms, handle, protocol=pkl.HIGHEST_PROTOCOL)
+    # with open(os.path.join(ctx.inp_w_dir, 'weights_means.pickle'), 'wb') as handle:
+    #     pkl.dump(ctx.sample_mean.cpu().numpy(), handle, protocol=pkl.HIGHEST_PROTOCOL)
+    # # concatenate weights differences
+    # weights_diff = []
+    # for i in range(1, ctx.counter + 1):
+    #     name = 'weights_differences_' + str(i) + '.pickle'
+    #     weights_diff.append(np.load(os.path.join(ctx.inp_w_dir, 'tmp', name)))
+    # weights_diff = np.vstack(weights_diff)
+    # with open(os.path.join(ctx.inp_w_dir, 'weights_differences.pickle'), 'wb') as handle:
+    #     pkl.dump(weights_diff, handle, protocol=pkl.HIGHEST_PROTOCOL)
+    # shutil.rmtree(os.path.join(ctx.inp_w_dir, 'tmp'))
 

@@ -1,6 +1,7 @@
 import numpy as np
 import json, logging, os, subprocess
 import time
+import torch as th
 
 def gitrev(opt):
     cmds = [['git', 'rev-parse', 'HEAD'],
@@ -37,17 +38,23 @@ def create_basic_logger(ctx, filename, idx=0):
     ctx.ex.info['weights_logger'] = fn
     return l
 
-
+def logical_index(input, shape):
+    idx_onehot = th.ByteTensor(*shape).to(input.device)
+    idx_onehot.zero_()
+    idx_onehot = idx_onehot.scatter_(1, input.unsqueeze(1), 1)
+    return idx_onehot
 
 def create_logger(ctx, idx=0):
     opt = ctx.opt
     if not opt.get('fl', None):
         return
 
-    if len(opt.get('resume', '')) > 0:
-        print('Retraining, will stop logging')
-        return
-
+    #if len(opt.get('resume', '')) > 0:
+        #print('Retraining, will stop logging')
+        #fn = opt.get('resume', '')
+        #fn = fn.split('/')[-2]
+        #opt['filename'] = fn
+    
     if opt.get('filename', None) is None:
         build_filename(ctx)
 
@@ -117,6 +124,7 @@ def build_filename(ctx):
     marker = opt['marker']
     dconf = dict()
     cfg_mdf = ctx.ex.current_run.config_modifications.modified
+    print(cfg_mdf)
     # todo: fix this for sacred
     for k in cfg_mdf:
         if 'dataset' in k:
@@ -132,7 +140,7 @@ def build_filename(ctx):
             dconf[k] = opt[k]
 
     base_whilelist = ['dataset', 'arch']
-    blacklist = ['g','save', 'fl', 'tfl', 'dbl', 'o', 'source', '__doc__', 'j', 'print_freq']
+    blacklist = ['lrs', 'g','save', 'fl', 'tfl', 'dbl', 'o', 'source', '__doc__', 'j', 'print_freq']
     
     dconfc = dconf.copy()
     for k in dconf.keys():
