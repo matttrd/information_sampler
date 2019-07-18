@@ -10,6 +10,9 @@ import numpy as np
 import copy
 import random
 from models import get_num_classes
+from PIL import Image
+import os
+
 
 data_ingredient = Ingredient('dataset')
 
@@ -43,6 +46,33 @@ class MyDataset(Dataset):
     def __len__(self):
         return len(self.data)
 
+class LT_Dataset(Dataset):
+    
+    def __init__(self, root, txt, transform=None):
+        self.img_path = []
+        self.labels = []
+        self.transform = transform
+        with open(txt) as f:
+            for line in f:
+                self.img_path.append(os.path.join(root, line.split()[0]))
+                self.labels.append(int(line.split()[1]))
+        
+    def __len__(self):
+        return len(self.labels)
+        
+    def __getitem__(self, index):
+        path = self.img_path[index]
+        target = self.labels[index]
+        
+        with open(path, 'rb') as f:
+            sample = Image.open(f).convert('RGB')
+        
+        if self.transform is not None:
+            data = self.transform(sample)
+
+        return data, target, index
+
+
 @data_ingredient.capture
 def load_data(name, source, shuffle, frac, perc, mode, norm, opt):
 
@@ -54,7 +84,7 @@ def load_data(name, source, shuffle, frac, perc, mode, norm, opt):
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)) if norm else
                  transforms.Normalize((0, 0, 0), (1, 1, 1))])
 
-        transforms_test = transforms.Compose([
+        transform_test = transforms.Compose([
                                 transforms.ToTensor(),
                                 transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)) if norm else
                  transforms.Normalize((0, 0, 0), (1, 1, 1))])
@@ -62,7 +92,7 @@ def load_data(name, source, shuffle, frac, perc, mode, norm, opt):
         transform_train = transforms.Compose([transforms.ToTensor(),
                             transforms.Normalize((0.1307,), (0.3081,))
                            ])
-        transforms_test = transforms.Compose([
+        transform_test = transforms.Compose([
                                 transforms.ToTensor(),
                                 transforms.Normalize((0.1307,), (0.3081,))])
     elif name == 'cifar10.1':
@@ -91,12 +121,25 @@ def load_data(name, source, shuffle, frac, perc, mode, norm, opt):
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)) if norm else
                  transforms.Normalize((0, 0, 0), (1, 1, 1))
         ])
-        transforms_test = transforms.Compose([
+        transform_test = transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)) if norm else
                  transforms.Normalize((0, 0, 0), (1, 1, 1))
         ])
-
+    elif name == 'imagenet_lt':
+        transform_train = transforms.Compose([
+            transforms.RandomResizedCrop(224),
+            transforms.RandomHorizontalFlip(),
+            transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0),
+            transforms.ToTensor(),
+            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+        ])
+        transform_test = transforms.Compose([
+            transforms.Resize(256),
+            transforms.CenterCrop(224),
+            transforms.ToTensor(),
+            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+        ])
     else:
         raise NotImplementedError
     
@@ -111,16 +154,20 @@ def load_data(name, source, shuffle, frac, perc, mode, norm, opt):
     # test_dataset = datasets.__dict__[name.upper()](source, train=False, download=True,
     #                    transform=transforms_test)
 
-    train_dataset = MyDataset(name, source, train=True, download=True,
-                       transform=transform_train)
-    clean_train_dataset = MyDataset(name, source, train=True, download=True,
-                       transform=transforms.Compose([
-                            transforms.ToTensor(),
-                            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)) if norm else
-                 transforms.Normalize((0, 0, 0), (1, 1, 1))]))
-    
-    test_dataset = MyDataset(name, source, train=False, download=True,
-                       transform=transforms_test)
+    if name == 'imagenet_lt':
+        train_dataset = LT_Dataset(root='/home/matteo/data/imagenet', 
+                            txt='./data/ImageNet_LT/ImageNet_LT_train.txt', 
+                            transform=transform_train)
+        test_dataset = LT_Dataset(root='/home/matteo/data/imagenet', 
+                            txt='./data/ImageNet_LT/ImageNet_LT_test.txt', 
+                            transform=transform_test)
+    elif name in ['cifar10', 'mnist', 'cifar10.1', 'tinyimagenet64']:
+        train_dataset = MyDataset(name, source, train=True, download=True,
+                        transform=transform_train)    
+        test_dataset = MyDataset(name, source, train=False, download=True,
+                        transform=transform_test)
+    else:
+        raise NotImplementedError
 
     train_length = len(train_dataset)
     test_length = len(test_dataset)
@@ -173,7 +220,6 @@ def load_data(name, source, shuffle, frac, perc, mode, norm, opt):
         
         train_dataset, ind = reduce_dataset(train_dataset, sclasses)
         test_dataset, _ = reduce_dataset(test_dataset, sclasses)
-        clean_train_dataset, _ = reduce_dataset(clean_train_dataset, sclasses)
         train_length = len(train_dataset)
 
     
@@ -215,16 +261,12 @@ def load_data(name, source, shuffle, frac, perc, mode, norm, opt):
     #     train_dataset,
     #     batch_size=opt['b'], shuffle=True, num_workers=opt['j'], pin_memory=True, sampler=sampler)
 
-    clean_train_loader = torch.utils.data.DataLoader(
-        train_dataset,
-        batch_size=opt['b'], shuffle=False, num_workers=opt['j'], pin_memory=True, sampler=sampler)
-
     test_loader = torch.utils.data.DataLoader(
             test_dataset, 
             batch_size=opt['b'], shuffle=False, num_workers=opt['j'], pin_memory=True)
 
-    return train_loader, test_loader, clean_train_loader, weights_loader
+    return train_loader, test_loader, weights_loader
 
 def get_dataset_len(name):
-    d = dict(cifar10=50000, tinyimagenet64=100000)
+    d = dict(cifar10=50000, tinyimagenet64=100000, imagenet_lt=115846)
     return d[name]
