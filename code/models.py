@@ -499,8 +499,8 @@ class resnet18(nn.Module):
         # import resnet_nobn as rn
         import resnet as rn
         # opt['wd'] = 1e-4
-        #self.m = thv.models.resnet18(num_classes=get_num_classes(opt))        
-        self.m = rn.ResNet18(num_classes=get_num_classes(opt))
+        self.m = thv.models.resnet18(num_classes=get_num_classes(opt))        
+        #self.m = rn.ResNet18(num_classes=get_num_classes(opt))
         self.N = num_parameters(self.m)
         s = '[%s] Num parameters: %d'%(self.name, self.N)
         # print(s)
@@ -515,8 +515,8 @@ class resnet50(nn.Module):
         super(resnet50, self).__init__()
         # opt['wd'] = 1e-4
         import resnet as rn
-        # self.m = thv.models.resnet50(num_classes=get_num_classes(opt))
-        self.m = rn.ResNet50(num_classes=get_num_classes(opt))
+        self.m = thv.models.resnet50(num_classes=get_num_classes(opt))
+        #self.m = rn.ResNet50(num_classes=get_num_classes(opt))
         self.N = num_parameters(self.m)
         s = '[%s] Num parameters: %d'%(self.name, self.N)
         # print(s)

@@ -18,7 +18,7 @@ data_ingredient = Ingredient('dataset')
 
 @data_ingredient.config
 def cfg():
-    name = 'cifar10'  # dataset filename
+    name = 'imagenet_lt'  # dataset filename
     source = '../data/'
     shuffle = True #only for training set by default
     frac = 1 # fraction of dataset used
