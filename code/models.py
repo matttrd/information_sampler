@@ -13,7 +13,7 @@ track_running_stats = True
 
 def get_num_classes(opt):
     d = dict(mnist=10, svhn=10, cifar10=10, cifar20=20,
-            cifar100=100, imagenet32=1000, imagenet=1000, 
+            cifar100=100, imagenet32=1000, imagenet=1000, imagenet_lt=1000, 
             tinyimagenet64=200, halfmnist=10)
     d['cifar10.1']=10
     if not opt['dataset'] in d:
