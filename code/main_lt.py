@@ -23,6 +23,7 @@ import threading
 from hook import *
 import pickle as pkl
 from resnet_lt import *
+from utils_lt import shot_acc
 
 # local thread used as a global context
 ctx = threading.local()
@@ -291,7 +292,7 @@ def train(train_loader, model, criterion, optimizer, epoch, opt):
     return stats
  
 @epoch_hook(ctx, mode='val')
-def validate(val_loader, model, criterion, opt):
+def validate(val_loader, train_dataset, model, criterion, opt):
     data_time = TimeMeter(unit=1)
     losses = AverageValueMeter()
     errors = ClassErrorMeter(topk=[1,5])
@@ -314,6 +315,8 @@ def validate(val_loader, model, criterion, opt):
             loss = losses.value()[0]
             top1 = errors.value()[0]
 
+            many_acc_top1, median_acc_top1, low_acc_top1 = shot_acc(output, target, train_dataset)
+
             # if i % opt['print_freq'] == 0:
             #     print('[{0}/{1}]\t'
             #           'Time {time:.3f}\t'
@@ -327,7 +330,8 @@ def validate(val_loader, model, criterion, opt):
 
         print(' * Err@1 {top1:.3f}'
               .format(top1=top1))
-    stats = {'loss': loss, 'top1': top1}
+    stats = {'loss': loss, 'top1': top1, 'many_acc_top1': many_acc_top1, 
+             'median_acc_top1': median_acc_top1, 'low_acc_top1': low_acc_top1}
     ctx.metrics = stats
     ctx.images = input
     return stats
@@ -439,7 +443,7 @@ def main_worker(opt):
     ctx.count = count
 
     if opt['evaluate']:
-        validate(val_loader, model, criterion, opt)
+        validate(val_loader, train_loader.dataset, model, criterion, opt)
         return
 
     for epoch in range(opt['start_epoch'], opt['epochs']):
@@ -456,7 +460,7 @@ def main_worker(opt):
         # train for one epoch
         train(train_loader, model, criterion, optimizer, epoch, opt)
         # evaluate on validation set
-        metrics = validate(val_loader, model, criterion, opt)
+        metrics = validate(val_loader, train_loader.dataset, model, criterion, opt)
 
         # remember best top@1 and save checkpoint
         top1 = metrics['top1']
