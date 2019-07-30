@@ -386,7 +386,7 @@ def main_worker(opt):
     else:
         if opt['arch'] == 'resnet':
             print("=> creating model resnet")
-            model = ResNet(BasicBlock, [1, 1, 1, 1], num_classes=1000, use_modulatedatt=True)
+            model = ResNet(BasicBlock, [1, 1, 1, 1], num_classes=1000, use_modulatedatt=False)
         else:
             print("=> creating model '{}'".format(opt['arch']))
             model = models.__dict__[opt['arch']](opt)
