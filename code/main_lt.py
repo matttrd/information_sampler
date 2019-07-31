@@ -252,9 +252,6 @@ def runner(input, target, model, criterion, optimizer, idx):
         model.eval()
         S_prob = compute_weights(output, target, idx, criterion)
         model.train()
-        #ctx.images = input
-        many_acc_top1, median_acc_top1, low_acc_top1 = shot_acc(output, target, train_dataset)
-
         return avg_stats, S_prob
 
 @epoch_hook(ctx, mode='train')
@@ -280,23 +277,22 @@ def train(train_loader, model, criterion, optimizer, epoch, opt):
             train_loader.sampler.weights = S_prob
 
         loss = stats['loss']
-        top1 = stats['top1']
+        top1 = (100 - stats['top1']) / 100.
 
 
         if i % opt['print_freq'] == 0:
             print('Epoch: [{0}][{1}/{2}]\t'
                   'Time {time:.3f}\t'
                   'Loss {loss:.4f}\t'
-                  'Err@1 {top1:.3f}\t'.format(
+                  'Acc@1 {top1:.3f}\t'.format(
                    epoch, i, len(train_loader),
                    time=data_time.value(), loss=loss, 
-                   top1=top1))
+                   top1=top1 * 100.))
 
     return stats
  
 @epoch_hook(ctx, mode='val')
 def validate(val_loader, train_dataset, model, criterion, opt):
-    data_time = TimeMeter(unit=1)
     losses = AverageValueMeter()
     errors = ClassErrorMeter(topk=[1,5])
     # switch to evaluate mode
@@ -305,7 +301,6 @@ def validate(val_loader, train_dataset, model, criterion, opt):
     targets = []
 
     with torch.no_grad():
-        end = time.time()
         for i, (input, target, _) in tqdm(enumerate(val_loader)):
             input = input.cuda(opt['g'])
             target = target.cuda(opt['g'])
@@ -313,29 +308,17 @@ def validate(val_loader, train_dataset, model, criterion, opt):
             # compute output
             output, _ = model(input)
             loss = criterion(output, target)
-            #preds.append(output.max(dim=1)[1])
-            #targets.append(target)
+            preds.append(output.max(dim=1)[1])
+            targets.append(target)
 
             errors.add(output, target)
             losses.add(loss.item())
          
             loss = losses.value()[0]
-            top1 = errors.value()[0]
+            top1 = (100 - errors.value()[0]) / 100.
 
-    
-            # if i % opt['print_freq'] == 0:
-            #     print('[{0}/{1}]\t'
-            #           'Time {time:.3f}\t'
-            #           'Loss {loss:.4f}\t'
-            #           'Err@1 {top1:.3f}\t'
-            #           'Err@5 {top5:.3f}'.format(
-            #            i, 
-            #            len(val_loader),
-            #            time=data_time.value(), loss=loss, 
-            #            top1=top1, top5=top5))
-
-        print(' * Err@1 {top1:.3f}'
-              .format(top1=top1))
+        print(' * Acc@1 {top1:.3f}'
+              .format(top1=top1 * 100.))
     
     preds = torch.cat(preds)
     targets = torch.cat(targets)
@@ -344,7 +327,6 @@ def validate(val_loader, train_dataset, model, criterion, opt):
     stats = {'loss': loss, 'top1': top1, 'many_acc_top1': many_acc_top1, 
              'median_acc_top1': median_acc_top1, 'low_acc_top1': low_acc_top1}
     ctx.metrics = stats
-    ctx.images = input
     return stats
 
 

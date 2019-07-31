@@ -244,9 +244,9 @@ def load_data(name, source, shuffle, frac, perc, mode, norm, opt):
         train_dataset = Subset(train_dataset, indices)
         train_length = len(train_dataset)   
 
-    weights_loader = torch.utils.data.DataLoader(train_dataset, batch_size=opt['b'], shuffle=False, pin_memory=True) # used for the computation of the weights
+    weights_loader = torch.utils.data.DataLoader(train_dataset, batch_size=opt['b'], shuffle=False, num_workers=opt['j'], pin_memory=True) # used for the computation of the weights
     if opt['sampler'] == 'ufoym':
-        weights_init = np.get_imbalance_weights(dataset,indices=indices, num_samples=None)
+        weights_init = np.get_imbalance_weights(dataset, indices=indices, num_samples=None)
     else:
         weights_init = torch.DoubleTensor(np.zeros(train_length) + 0.01)
 

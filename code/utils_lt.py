@@ -49,7 +49,7 @@ def init_weights(model, weights_path, caffe=False, classifier=False):
     model.load_state_dict(weights)   
     return model
 
-def shot_acc (preds, labels, train_data, many_shot_thr=100, low_shot_thr=20):
+def shot_acc(preds, labels, train_data, many_shot_thr=100, low_shot_thr=20):
     
     training_labels = np.array(train_data.dataset.labels).astype(int)
 
