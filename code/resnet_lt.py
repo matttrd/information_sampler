@@ -5,7 +5,6 @@ import torch.nn.functional as F
 import pdb 
 
 class ModulatedAttLayer(nn.Module):
-
     def __init__(self, in_channels, reduction = 2, mode='embedded_gaussian'):
         super(ModulatedAttLayer, self).__init__()
         self.in_channels = in_channels

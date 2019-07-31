@@ -47,7 +47,6 @@ class MyDataset(Dataset):
         return len(self.data)
 
 class LT_Dataset(Dataset):
-    
     def __init__(self, root, txt, transform=None):
         self.img_path = []
         self.labels = []

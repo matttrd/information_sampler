@@ -61,7 +61,7 @@ def shot_acc (preds, labels, train_data, many_shot_thr=100, low_shot_thr=20):
     for l in np.unique(labels):
         train_class_count.append(len(training_labels[training_labels == l]))
         test_class_count.append(len(labels[labels == l]))
-        class_correct.append((preds[labels == l] == labels[labels == l]).sum())
+        class_correct.append(np.array(preds[labels == l] == labels[labels == l]).sum())
 
     many_shot = []
     median_shot = []

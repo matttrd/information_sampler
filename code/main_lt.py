@@ -5,7 +5,7 @@ import shutil
 import time
 import warnings
 import sys
-
+from tqdm import tqdm
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -41,7 +41,7 @@ def cfg():
     Base configuration
     '''
     # architecture
-    arch = 'resnet' #'allcnn'
+    arch = 'resnet'
     # number of data loading workers (default: 4)
     j = 1
     # number of total B to run
@@ -102,6 +102,7 @@ def cfg():
     wufreq = 1 #weights sampler frequency
     topkw = 500 # number of weight to analyse (default 500)
     classes = None
+    modatt = False # modulated attention
     
 best_top1 = 0
 
@@ -162,7 +163,7 @@ def compute_weights_stats(model, criterion, weights_loader):
     with torch.no_grad():
         for batch_idx, (data, target, idx) in enumerate(weights_loader):
             data, target = data.cuda(opt['g']), target.cuda(opt['g'])
-            output = model(data)
+            output, _ = model(data)
             loss = crit(output, target)
             if ctx.opt['sampler'] == 'tunnel':
                 w = torch.exp(-loss / ctx.opt['temperature'] )
@@ -228,7 +229,7 @@ def compute_weights_stats(model, criterion, weights_loader):
 @batch_hook(ctx, mode='train')
 def runner(input, target, model, criterion, optimizer, idx):
     # compute output
-        output = model(input)
+        output, _ = model(input)
         loss = criterion(output, target)
 
         # measure accuracy and record loss
@@ -252,6 +253,8 @@ def runner(input, target, model, criterion, optimizer, idx):
         S_prob = compute_weights(output, target, idx, criterion)
         model.train()
         #ctx.images = input
+        many_acc_top1, median_acc_top1, low_acc_top1 = shot_acc(output, target, train_dataset)
+
         return avg_stats, S_prob
 
 @epoch_hook(ctx, mode='train')
@@ -298,16 +301,20 @@ def validate(val_loader, train_dataset, model, criterion, opt):
     errors = ClassErrorMeter(topk=[1,5])
     # switch to evaluate mode
     model.eval()
+    preds = []
+    targets = []
 
     with torch.no_grad():
         end = time.time()
-        for i, (input, target, _) in enumerate(val_loader):
+        for i, (input, target, _) in tqdm(enumerate(val_loader)):
             input = input.cuda(opt['g'])
             target = target.cuda(opt['g'])
 
             # compute output
-            output = model(input)
+            output, _ = model(input)
             loss = criterion(output, target)
+            #preds.append(output.max(dim=1)[1])
+            #targets.append(target)
 
             errors.add(output, target)
             losses.add(loss.item())
@@ -315,8 +322,7 @@ def validate(val_loader, train_dataset, model, criterion, opt):
             loss = losses.value()[0]
             top1 = errors.value()[0]
 
-            many_acc_top1, median_acc_top1, low_acc_top1 = shot_acc(output, target, train_dataset)
-
+    
             # if i % opt['print_freq'] == 0:
             #     print('[{0}/{1}]\t'
             #           'Time {time:.3f}\t'
@@ -330,6 +336,11 @@ def validate(val_loader, train_dataset, model, criterion, opt):
 
         print(' * Err@1 {top1:.3f}'
               .format(top1=top1))
+    
+    preds = torch.cat(preds)
+    targets = torch.cat(targets)
+    many_acc_top1, median_acc_top1, low_acc_top1 = shot_acc(preds, targets, train_dataset)
+
     stats = {'loss': loss, 'top1': top1, 'many_acc_top1': many_acc_top1, 
              'median_acc_top1': median_acc_top1, 'low_acc_top1': low_acc_top1}
     ctx.metrics = stats
@@ -390,7 +401,7 @@ def main_worker(opt):
     else:
         if opt['arch'] == 'resnet':
             print("=> creating model resnet")
-            model = ResNet(BasicBlock, [1, 1, 1, 1], num_classes=1000, use_modulatedatt=False)
+            model = ResNet(BasicBlock, [1, 1, 1, 1], num_classes=1000, use_modulatedatt=opt['modatt'])
         else:
             print("=> creating model '{}'".format(opt['arch']))
             model = models.__dict__[opt['arch']](opt)
@@ -443,7 +454,7 @@ def main_worker(opt):
     ctx.count = count
 
     if opt['evaluate']:
-        validate(val_loader, train_loader.dataset, model, criterion, opt)
+        validate(val_loader, train_loader, model, criterion, opt)
         return
 
     for epoch in range(opt['start_epoch'], opt['epochs']):
@@ -460,7 +471,7 @@ def main_worker(opt):
         # train for one epoch
         train(train_loader, model, criterion, optimizer, epoch, opt)
         # evaluate on validation set
-        metrics = validate(val_loader, train_loader.dataset, model, criterion, opt)
+        metrics = validate(val_loader, train_loader, model, criterion, opt)
 
         # remember best top@1 and save checkpoint
         top1 = metrics['top1']
