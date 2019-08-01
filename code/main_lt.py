@@ -103,7 +103,6 @@ def cfg():
     topkw = 500 # number of weight to analyse (default 500)
     classes = None
     modatt = False # modulated attention
-    
 best_top1 = 0
 
 # for some reason, the db must me created in the global scope
@@ -252,6 +251,7 @@ def runner(input, target, model, criterion, optimizer, idx):
         model.eval()
         S_prob = compute_weights(output, target, idx, criterion)
         model.train()
+        avg_stats['top1'] = (100 - avg_stats['top1']) / 100.
         return avg_stats, S_prob
 
 @epoch_hook(ctx, mode='train')
@@ -277,8 +277,7 @@ def train(train_loader, model, criterion, optimizer, epoch, opt):
             train_loader.sampler.weights = S_prob
 
         loss = stats['loss']
-        top1 = (100 - stats['top1']) / 100.
-
+        top1 = stats['top1']
 
         if i % opt['print_freq'] == 0:
             print('Epoch: [{0}][{1}/{2}]\t'
@@ -366,6 +365,15 @@ def adjust_learning_rate(epoch):
     if opt.get('fl', None) and ctx.ex.logger:
         ctx.ex.logger.info('[%s] '%'lr' + json.dumps({'%s'%'lr': lr}))
 
+def adjust_temperature(epoch, opt):
+    if isinstance(opt['temperature'], str):
+        temps = json.loads(opt['temperature'])
+        initial_temp = temps[0]
+        final_temp = temps[1]
+        ratio = epoch / opt['epochs']
+        return final_temp * ratio + initial_temp * (1 - ratio)
+    return 
+
 
 @train_hook(ctx)
 def main_worker(opt):
@@ -439,17 +447,22 @@ def main_worker(opt):
         validate(val_loader, train_loader, model, criterion, opt)
         return
 
+   
+
+
+
     for epoch in range(opt['start_epoch'], opt['epochs']):
         ctx.epoch = epoch
         adjust_learning_rate(epoch)
+        adjust_temperature(epoch, opt)
 
         # if opt['sampler'] == 'invtunnel' or opt['sampler'] == 'tunnel':
         #     new_weights = compute_weights_stats(model, criterion, weights_loader)
         #     train_loader.sampler.weights = new_weights
         # else:
         #     # compute dummy weights for visualization
-        if ctx.opt['save']:
-        	_ = compute_weights_stats(model, criterion, weights_loader) 
+        # if ctx.opt['save']:
+        #   _ = compute_weights_stats(model, criterion, weights_loader) 
         # train for one epoch
         train(train_loader, model, criterion, optimizer, epoch, opt)
         # evaluate on validation set
@@ -485,20 +498,20 @@ def main():
         #               'from checkpoints.')
     main_worker(ctx.opt)
 
-    if not ctx.opt['evaluate'] and ctx.opt['save']:
-        with open(os.path.join(ctx.inp_w_dir, 'toweights.pickle'), 'wb') as handle:
-            pkl.dump(ctx.toweights, handle, protocol=pkl.HIGHEST_PROTOCOL)
-        with open(os.path.join(ctx.inp_w_dir, 'histograms.pickle'), 'wb') as handle:
-            pkl.dump(ctx.histograms, handle, protocol=pkl.HIGHEST_PROTOCOL)
-        with open(os.path.join(ctx.inp_w_dir, 'weights_means.pickle'), 'wb') as handle:
-            pkl.dump(ctx.sample_mean.cpu().numpy(), handle, protocol=pkl.HIGHEST_PROTOCOL)
-        # concatenate weights differences
-        weights_diff = []
-        for i in range(1, ctx.counter + 1):
-            name = 'weights_differences_' + str(i) + '.pickle'
-            weights_diff.append(np.load(os.path.join(ctx.inp_w_dir, 'tmp', name)))
-        weights_diff = np.vstack(weights_diff)
-        with open(os.path.join(ctx.inp_w_dir, 'weights_differences.pickle'), 'wb') as handle:
-            pkl.dump(weights_diff, handle, protocol=pkl.HIGHEST_PROTOCOL)
-        shutil.rmtree(os.path.join(ctx.inp_w_dir, 'tmp'))
+    # if not ctx.opt['evaluate'] and ctx.opt['save']:
+    #     with open(os.path.join(ctx.inp_w_dir, 'toweights.pickle'), 'wb') as handle:
+    #         pkl.dump(ctx.toweights, handle, protocol=pkl.HIGHEST_PROTOCOL)
+    #     with open(os.path.join(ctx.inp_w_dir, 'histograms.pickle'), 'wb') as handle:
+    #         pkl.dump(ctx.histograms, handle, protocol=pkl.HIGHEST_PROTOCOL)
+    #     with open(os.path.join(ctx.inp_w_dir, 'weights_means.pickle'), 'wb') as handle:
+    #         pkl.dump(ctx.sample_mean.cpu().numpy(), handle, protocol=pkl.HIGHEST_PROTOCOL)
+    #     # concatenate weights differences
+    #     weights_diff = []
+    #     for i in range(1, ctx.counter + 1):
+    #         name = 'weights_differences_' + str(i) + '.pickle'
+    #         weights_diff.append(np.load(os.path.join(ctx.inp_w_dir, 'tmp', name), allow_pickle=True))
+    #     weights_diff = np.vstack(weights_diff)
+    #     with open(os.path.join(ctx.inp_w_dir, 'weights_differences.pickle'), 'wb') as handle:
+    #         pkl.dump(weights_diff, handle, protocol=pkl.HIGHEST_PROTOCOL)
+    #     shutil.rmtree(os.path.join(ctx.inp_w_dir, 'tmp'))
 
