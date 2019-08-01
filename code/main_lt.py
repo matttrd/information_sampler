@@ -103,6 +103,7 @@ def cfg():
     topkw = 500 # number of weight to analyse (default 500)
     classes = None
     modatt = False # modulated attention
+    dyncount = False
 best_top1 = 0
 
 # for some reason, the db must me created in the global scope
@@ -143,11 +144,21 @@ def compute_weights(outputs, targets, idx, criterion):
         o = output[i].reshape(-1, output.shape[1])
         ctx.complete_outputs[index] = criterion(o, targets[i].unsqueeze(0))
         ctx.count[index] += 1
+        max_ = ctx.count[index].max()
+        if max_ > ctx.max_count:
+            ctx.max_count = max_
+
+    complete_losses = ctx.complete_outputs
+    counts = ctx.count / ctx.max_count
+    if ctx.opt['dyncount']:
+        temp = ctx.opt['temperature'] * counts
+    else:
+        temp = ctx.opt['temperature']
 
     if ctx.opt['sampler'] == 'tunnel':
-        S_prob = torch.exp(-ctx.complete_outputs/ctx.opt['temperature'])
+        S_prob = torch.exp(-complete_losses/temp)
     else:
-        S_prob = 1 - torch.exp(-ctx.complete_outputs/ctx.opt['temperature'])
+        S_prob = 1 - torch.exp(-complete_losses/temp)
     return S_prob
 
 crit = nn.CrossEntropyLoss(reduce=False)
@@ -435,13 +446,12 @@ def main_worker(opt):
     train_loader, val_loader, weights_loader = load_data(opt=opt)
     ctx.train_loader = train_loader
 
-    ctx.counter = 0     # count the number of times weights are updated
-
-    #complete_outputs = torch.DoubleTensor(train_loader.sampler.weights).cuda(opt['g'])
     complete_outputs = torch.ones(get_dataset_len(opt['dataset'])).cuda(opt['g'])
     count = torch.zeros_like(complete_outputs).cuda(opt['g'])
     ctx.complete_outputs = complete_outputs
     ctx.count = count
+    ctx.max_count = 0
+
 
     if opt['evaluate']:
         validate(val_loader, train_loader, model, criterion, opt)
