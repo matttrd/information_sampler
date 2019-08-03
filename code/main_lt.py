@@ -395,7 +395,7 @@ def adjust_temperature(epoch, opt):
         initial_temp = temps[0]
         final_temp = temps[1]
         ratio = (epoch / opt['epochs']) ** 0.5
-        return final_temp * ratio + initial_temp * (1 - ratio)
+        ctx.opt['temperature'] = final_temp * ratio + initial_temp * (1 - ratio)
     return 
 
 
