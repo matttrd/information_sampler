@@ -99,21 +99,23 @@ def cfg():
     sampler = 'default' # (default | invtunnel | tunnel | ufoym )
     # tunneling temperature
     temperature = 1.
+    temperatures = ''
     wufreq = 1 #weights sampler frequency
     topkw = 500 # number of weight to analyse (default 500)
     classes = None
     modatt = False # modulated attention
     dyncount = False
+    adjust_classes = False
 best_top1 = 0
 
 # for some reason, the db must me created in the global scope
 # that is there is not chance to select it easily (fix it)
 # if ex.configurations[0]()['dbl']:
-from sacred.observers import MongoObserver
-from sacred.utils import apply_backspaces_and_linefeeds
-print('Creating database')
-ctx.ex.observers.append(MongoObserver.create())
-ctx.ex.captured_out_filter = apply_backspaces_and_linefeeds
+# from sacred.observers import MongoObserver
+# from sacred.utils import apply_backspaces_and_linefeeds
+# print('Creating database')
+# ctx.ex.observers.append(MongoObserver.create())
+# ctx.ex.captured_out_filter = apply_backspaces_and_linefeeds
 
 @data_ingredient.capture
 def init(name):
@@ -144,21 +146,32 @@ def compute_weights(outputs, targets, idx, criterion):
         o = output[i].reshape(-1, output.shape[1])
         ctx.complete_outputs[index] = criterion(o, targets[i].unsqueeze(0))
         ctx.count[index] += 1
+        ctx.class_count[targets[i]] += 1
         max_ = ctx.count[index].max()
+        max_classes = ctx.class_count.max()
+        
+        if max_classes > ctx.max_class_count:
+            ctx.max_class_count = max_classes
+
         if max_ > ctx.max_count:
             ctx.max_count = max_
 
     complete_losses = ctx.complete_outputs
-    counts = ctx.count / ctx.max_count
+    ncounts = ctx.count / ctx.max_count
     if ctx.opt['dyncount']:
-        temp = ctx.opt['temperature'] * counts
+        temp = ctx.opt['temperature'] * ncounts
     else:
         temp = ctx.opt['temperature']
 
+    if ctx.opt['adjust_classes']:
+        for i, index in enumerate(idx):
+            ratio = ctx.class_count[targets[i]] / ctx.max_class_count
+            complete_losses[index] = complete_losses[index] / ratio
+
     if ctx.opt['sampler'] == 'tunnel':
-        S_prob = torch.exp(-complete_losses/temp)
+        S_prob = torch.exp(-complete_losses / temp)
     else:
-        S_prob = 1 - torch.exp(-complete_losses/temp)
+        S_prob = 1 - torch.exp(-complete_losses / temp)
     return S_prob
 
 crit = nn.CrossEntropyLoss(reduce=False)
@@ -377,11 +390,11 @@ def adjust_learning_rate(epoch):
         ctx.ex.logger.info('[%s] '%'lr' + json.dumps({'%s'%'lr': lr}))
 
 def adjust_temperature(epoch, opt):
-    if isinstance(opt['temperature'], str):
-        temps = json.loads(opt['temperature'])
+    if len(opt['temperatures']) > 0:
+        temps = opt['temperatures']
         initial_temp = temps[0]
         final_temp = temps[1]
-        ratio = epoch / opt['epochs']
+        ratio = (epoch / opt['epochs']) ** 0.5
         return final_temp * ratio + initial_temp * (1 - ratio)
     return 
 
@@ -445,13 +458,19 @@ def main_worker(opt):
     # Data loading code
     train_loader, val_loader, weights_loader = load_data(opt=opt)
     ctx.train_loader = train_loader
+    ctx.counter = 1
 
     complete_outputs = torch.ones(get_dataset_len(opt['dataset'])).cuda(opt['g'])
+    
+    if opt['adjust_classes']:
+        ctx.class_count = torch.zeros(1000).cuda(opt['g'])
+    ctx.max_class_count = 0
+
     count = torch.zeros_like(complete_outputs).cuda(opt['g'])
     ctx.complete_outputs = complete_outputs
     ctx.count = count
     ctx.max_count = 0
-
+    
 
     if opt['evaluate']:
         validate(val_loader, train_loader, model, criterion, opt)
