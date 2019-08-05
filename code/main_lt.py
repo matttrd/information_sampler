@@ -165,7 +165,7 @@ def compute_weights(outputs, targets, idx, criterion):
 
     if ctx.opt['adjust_classes']:
         for i, index in enumerate(idx):
-            ratio = ctx.class_count[targets[i]] / ctx.max_class_count
+            ratio = 10 * ctx.class_count[targets[i]] / ctx.max_class_count
             complete_losses[index] = complete_losses[index] / ratio
 
     if ctx.opt['sampler'] == 'tunnel':
