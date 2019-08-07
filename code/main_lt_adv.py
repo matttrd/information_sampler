@@ -106,6 +106,11 @@ def cfg():
     modatt = False # modulated attention
     dyncount = False
     adjust_classes = False
+    sz = 0.1
+    k = 0
+    eps = 0.
+    random_start = True
+
 best_top1 = 0
 
 # for some reason, the db must me created in the global scope
@@ -250,12 +255,44 @@ def compute_weights_stats(model, criterion, weights_loader):
 
     return weights
 
+
+def project(orig_input, x, eps):
+        diff = x - orig_input
+        diff = diff.renorm(p=2, dim=0, maxnorm=eps)
+        return orig_input + diff
+
+def make_step(g, step_size):
+    # Scale g so that each element of the batch is at least norm 1
+    g_norm = torch.norm(g.view(g.shape[0], -1), dim=1).view(-1, 1, 1, 1)
+    scaled_g = g / (g_norm + 1e-10)
+    return scaled_g * step_size
+
+def random_perturb(x, eps):
+    return (torch.rand_like(x) - 0.5).renorm(p=2, dim=1, maxnorm=eps)
+
+
 @batch_hook(ctx, mode='train')
 def runner(input, target, model, criterion, optimizer, idx):
     # compute output
-        output, _ = model(input)
-        loss = criterion(output, target)
+        #output, _ = model(input)
+        #loss = criterion(output, target)
+        orig_input = input.detach()
+        x = input
+        if ctx.opt['random_start']:
+            x = torch.clamp(x + random_perturb(x, ctx.opt['eps']), 0, 1)
 
+        for j in range(ctx.opt['k']):
+            x = x.clone().detach().requires_grad_(True)
+            output, _ = model(x)
+            loss = criterion(output, target)
+            grad, = torch.autograd.grad(loss, [x])
+            with torch.no_grad():
+                x = make_step(grad, ctx.opt['sz']) + x
+                x = torch.clamp(x, 0, 1)
+                x = project(orig_input, x, ctx.opt['eps'])
+        
+        output, _ = model(x.detach())
+        loss = criterion(output, target)
         # measure accuracy and record loss
         ctx.errors.add(output.data, target.data)
         ctx.losses.add(loss.item())
