@@ -271,50 +271,99 @@ def random_perturb(x, eps):
     return (torch.rand_like(x) - 0.5).renorm(p=2, dim=1, maxnorm=eps)
 
 
+
+class InputDeNormalize(torch.nn.Module):
+    '''
+    A module (custom layer) for denormalizing the input to have a fixed 
+    mean and standard deviation (user-specified).
+    '''
+    def __init__(self, new_mean, new_std):
+        super().__init__()
+        new_mean = torch.tensor(new_mean)
+        new_std = torch.tensor(new_std)
+
+        new_std = new_std[..., None, None]
+        new_mean = new_mean[..., None, None]
+
+        self.register_buffer("new_mean", new_mean)
+        self.register_buffer("new_std", new_std)
+
+    def forward(self, x_normalized):
+        x = x_normalized * self.new_std.to(x_normalized.device) + self.new_mean.to(x_normalized.device)
+        x = torch.clamp(x, 0, 1)
+        return x
+
+class InputNormalize(torch.nn.Module):
+    '''
+    A module (custom layer) for normalizing the input to have a fixed 
+    mean and standard deviation (user-specified).
+    '''
+    def __init__(self, new_mean, new_std):
+        super().__init__()
+
+        new_mean = torch.tensor(new_mean)
+        new_std = torch.tensor(new_std)
+
+        new_std = new_std[..., None, None]
+        new_mean = new_mean[..., None, None]
+
+        self.register_buffer("new_mean", new_mean)
+        self.register_buffer("new_std", new_std)
+
+    def forward(self, x):
+        x = torch.clamp(x, 0, 1)
+        x_normalized = (x - self.new_mean.to(x.device))/self.new_std.to(x.device)
+        return x_normalized
+
 @batch_hook(ctx, mode='train')
 def runner(input, target, model, criterion, optimizer, idx):
+    input = ctx.denormalizer(input)
+    
+    x = input
+    def calc_loss(x):
+        x = ctx.normalizer(x)
+        output, _ = model(x)
+        return criterion(output, target), output
+
     # compute output
-        #output, _ = model(input)
-        #loss = criterion(output, target)
-        orig_input = input.detach()
-        x = input
-        if ctx.opt['random_start']:
-            x = torch.clamp(x + random_perturb(x, ctx.opt['eps']), 0, 1)
+    #output, _ = model(input)
+    #loss = criterion(output, target)
+    orig_input = input.detach()
+    if ctx.opt['random_start']:
+        x = torch.clamp(x + random_perturb(x, ctx.opt['eps']), 0, 1)
 
-        for j in range(ctx.opt['k']):
-            x = x.clone().detach().requires_grad_(True)
-            output, _ = model(x)
-            loss = criterion(output, target)
-            grad, = torch.autograd.grad(loss, [x])
-            with torch.no_grad():
-                x = make_step(grad, ctx.opt['sz']) + x
-                x = torch.clamp(x, 0, 1)
-                x = project(orig_input, x, ctx.opt['eps'])
-        
-        output, _ = model(x.detach())
-        loss = criterion(output, target)
-        # measure accuracy and record loss
-        ctx.errors.add(output.data, target.data)
-        ctx.losses.add(loss.item())
+    for j in range(ctx.opt['k']):
+        x = x.clone().detach().requires_grad_(True)
+        loss, _ = calc_loss(x)
+        grad, = torch.autograd.grad(loss, [x])
+        with torch.no_grad():
+            x = make_step(grad, ctx.opt['sz']) + x
+            x = torch.clamp(x, 0, 1)
+            x = project(orig_input, x, ctx.opt['eps'])
 
-        # compute gradient and do SGD step
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-        avg_stats = {'loss': ctx.losses.value()[0], 
-                     'top1': ctx.errors.value()[0]}
-        # batch_stats = {'loss': loss.item(), 
-        #          'top1': ctx.errors.value()[0], 
-        #          'top5': ctx.errors.value()[1]}
+    loss, output = calc_loss(x.detach())
+    # measure accuracy and record loss
+    ctx.errors.add(output.data, target.data)
+    ctx.losses.add(loss.item())
 
-        # ctx.metrics.batch = stats
-        ctx.metrics['avg'] = avg_stats
-        
-        model.eval()
-        S_prob = compute_weights(output, target, idx, criterion)
-        model.train()
-        avg_stats['top1'] = (100 - avg_stats['top1']) / 100.
-        return avg_stats, S_prob
+    # compute gradient and do SGD step
+    optimizer.zero_grad()
+    loss.backward()
+    optimizer.step()
+    avg_stats = {'loss': ctx.losses.value()[0], 
+                 'top1': ctx.errors.value()[0]}
+    # batch_stats = {'loss': loss.item(), 
+    #          'top1': ctx.errors.value()[0], 
+    #          'top5': ctx.errors.value()[1]}
+
+    # ctx.metrics.batch = stats
+    ctx.metrics['avg'] = avg_stats
+    
+    model.eval()
+    S_prob = compute_weights(output, target, idx, criterion)
+    model.train()
+    avg_stats['top1'] = (100 - avg_stats['top1']) / 100.
+    return avg_stats, S_prob
 
 @epoch_hook(ctx, mode='train')
 def train(train_loader, model, criterion, optimizer, epoch, opt):
@@ -497,6 +546,10 @@ def main_worker(opt):
     train_loader, val_loader, weights_loader = load_data(opt=opt)
     ctx.train_loader = train_loader
     ctx.counter = 1
+
+    if opt['dataset'] == 'imagenet_lt':
+        ctx.denormalizer = InputDeNormalize(new_mean=[0.485, 0.456, 0.406], new_std=[0.229, 0.224, 0.225])
+        ctx.normalizer = InputNormalize(new_mean=[0.485, 0.456, 0.406], new_std=[0.229, 0.224, 0.225])
 
     complete_outputs = torch.ones(get_dataset_len(opt['dataset'])).cuda(opt['g'])
     
