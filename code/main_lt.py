@@ -22,7 +22,8 @@ from sacred import Experiment
 import threading
 from hook import *
 import pickle as pkl
-from resnet_lt import *
+import cifar_models
+import imagenet_models
 from utils_lt import shot_acc
 
 # local thread used as a global context
@@ -414,9 +415,15 @@ def main_worker(opt):
         else:
             model = models.__dict__[opt['arch']](opt, pretrained=True)
     else:
-        if opt['arch'] == 'resnet':
-            print("=> creating model resnet")
-            model = ResNet(BasicBlock, [1, 1, 1, 1], num_classes=1000, use_modulatedatt=opt['modatt'])
+        if opt['dataset'] == 'cifar10' and opt['arch'] in ['resnet10', 'resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152']:
+            print("=> creating model '{}'".format(opt['arch']))
+            model = getattr(cifar_models, opt['arch'])(num_classes=10)
+        elif opt['dataset'] == 'cifar100' and opt['arch'] in ['resnet10', 'resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152']:
+            print("=> creating model '{}'".format(opt['arch']))
+            model = getattr(cifar_models, opt['arch'])(num_classes=100)
+        elif opt['dataset'] == 'imagenet_lt' and opt['arch'] in ['resnet10', 'resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152']:
+            print("=> creating model '{}'".format(opt['arch']))
+            model = getattr(imagenet_models, opt['arch'])(num_classes=1000, use_att=opt['modatt'])
         else:
             print("=> creating model '{}'".format(opt['arch']))
             model = models.__dict__[opt['arch']](opt)

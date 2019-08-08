@@ -235,3 +235,22 @@ class ResNet(nn.Module):
         x = self.fc(x)
 
         return x, feature_maps
+
+
+def resnet10(num_classes=1000, use_att=False):
+    return ResNet(BasicBlock, [1,1,1,1], num_classes=num_classes, use_modulatedatt=use_att)
+
+def resnet18(num_classes=1000, use_att=False):
+    return ResNet(BasicBlock, [2,2,2,2], num_classes=num_classes, use_modulatedatt=use_att)
+
+def resnet34(num_classes=1000, use_att=False):
+    return ResNet(BasicBlock, [3,4,6,3], num_classes=num_classes, use_modulatedatt=use_att)
+
+def resnet50(num_classes=1000, use_att=False):
+    return ResNet(Bottleneck, [3,4,6,3], num_classes=num_classes, use_modulatedatt=use_att)
+
+def resnet101(num_classes=1000, use_att=False):
+    return ResNet(Bottleneck, [3,4,23,3], num_classes=num_classes, use_modulatedatt=use_att)
+
+def resnet152(num_classes=1000, use_att=False):
+    return ResNet(Bottleneck, [3,8,36,3], num_classes=num_classes, use_modulatedatt=use_att)
