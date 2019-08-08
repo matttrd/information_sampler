@@ -42,7 +42,7 @@ def cfg():
     Base configuration
     '''
     # architecture
-    arch = 'resnet'
+    arch = 'resnet10'
     # number of data loading workers (default: 4)
     j = 1
     # number of total B to run
