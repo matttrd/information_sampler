@@ -13,12 +13,11 @@ from models import get_num_classes
 from PIL import Image
 import os
 
-
 data_ingredient = Ingredient('dataset')
 
 @data_ingredient.config
 def cfg():
-    name = 'imagenet_lt'  # dataset filename
+    name = 'cifar10'  # dataset filename
     source = '../data/'
     shuffle = True #only for training set by default
     frac = 1 # fraction of dataset used
@@ -166,6 +165,7 @@ def load_data(name, source, shuffle, frac, perc, mode, pilot_samp, norm, opt):
                         transform=transform_train)    
         test_dataset = MyDataset(name, source, train=False, download=True,
                         transform=transform_test)
+    
     else:
         raise NotImplementedError
 
@@ -190,9 +190,7 @@ def load_data(name, source, shuffle, frac, perc, mode, pilot_samp, norm, opt):
         mask[idx] = False
         indices = indices[mask]
         train_dataset = Subset(train_dataset, indices)
-        
-        # train_dataset.targets = np.array(train_dataset.targets)[mask]
-        # train_dataset.data = np.array(train_dataset.data)[mask]
+
         train_length = len(train_dataset)
         print('New Dataset length is ', train_length)
 
@@ -245,7 +243,7 @@ def load_data(name, source, shuffle, frac, perc, mode, pilot_samp, norm, opt):
         train_dataset = Subset(train_dataset, indices)
         train_length = len(train_dataset)   
 
-    weights_loader = torch.utils.data.DataLoader(train_dataset, batch_size=opt['b'], shuffle=False, num_workers=opt['j'], pin_memory=True) # used for the computation of the weights
+    
     if opt['sampler'] == 'ufoym':
         weights_init = np.get_imbalance_weights(dataset, indices=indices, num_samples=None)
     else:
@@ -254,18 +252,13 @@ def load_data(name, source, shuffle, frac, perc, mode, pilot_samp, norm, opt):
     sampler = torch.utils.data.WeightedRandomSampler(weights=weights_init, num_samples=int(len(weights_init)), replacement=True)
 
     train_loader = torch.utils.data.DataLoader(
-        train_dataset,
-        batch_size=opt['b'], shuffle=False, num_workers=opt['j'], pin_memory=True, sampler=sampler)
-
-    # train_loader = torch.utils.data.DataLoader(
-    #     train_dataset,
-    #     batch_size=opt['b'], shuffle=True, num_workers=opt['j'], pin_memory=True, sampler=sampler)
+        train_dataset, batch_size=opt['b'], shuffle=False, num_workers=opt['j'], pin_memory=True, sampler=sampler)
 
     test_loader = torch.utils.data.DataLoader(
             test_dataset, 
             batch_size=opt['b'], shuffle=False, num_workers=opt['j'], pin_memory=True)
 
-    return train_loader, test_loader, weights_loader
+    return train_loader, test_loader
 
 def get_dataset_len(name):
     d = dict(cifar10=50000, tinyimagenet64=100000, imagenet_lt=115846)

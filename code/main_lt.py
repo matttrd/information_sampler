@@ -188,7 +188,7 @@ def compute_weights_stats(model, criterion, weights_loader):
     hist_list = []
     
     with torch.no_grad():
-        for batch_idx, (data, target, idx) in enumerate(weights_loader):
+        for batch_idx, (data, target, idx) in enumerate(train_loader):
             data, target = data.cuda(opt['g']), target.cuda(opt['g'])
             output, _ = model(data)
             loss = crit(output, target)
@@ -233,10 +233,10 @@ def compute_weights_stats(model, criterion, weights_loader):
         os.makedirs(os.path.join(inp_w_dir, 'tmp'))
         
         # initialize sample mean of the weights
-        ctx.sample_mean = torch.zeros([1, len(weights_loader.dataset)]).cuda(opt['g'])     
+        ctx.sample_mean = torch.zeros([1, len(train_loader.dataset)]).cuda(opt['g'])     
         ctx.sample_mean = torch.zeros_like(ctx.sample_mean)
         # here will be stored weights of the last update
-        ctx.old_weights = torch.zeros([1, len(weights_loader.dataset)]).cuda(opt['g'])
+        ctx.old_weights = torch.zeros([1, len(train_loader.dataset)]).cuda(opt['g'])
         ctx.cum_sum_diff = torch.zeros_like(ctx.old_weights).cuda(opt['g'])   
         ctx.cum_sum = 0
 
@@ -471,7 +471,7 @@ def main_worker(opt):
     cudnn.benchmark = True
 
     # Data loading code
-    train_loader, val_loader, weights_loader = load_data(opt=opt)
+    train_loader, val_loader = load_data(opt=opt)
     ctx.train_loader = train_loader
     #ctx.counter = 1
 
