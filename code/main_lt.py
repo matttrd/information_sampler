@@ -133,6 +133,7 @@ def init(name):
     ctx.hooks = None
     ctx.toweights = {'indices': [], 'values': []}
     ctx.init = 0
+    ctx.counter = 0
     # if ctx.opt['sampler'] == 'our':
     #     ctx.weights_logger = create_basic_logger(ctx, 'statistics', idx=0)
     register_hooks(ctx)
@@ -472,7 +473,7 @@ def main_worker(opt):
     # Data loading code
     train_loader, val_loader, weights_loader = load_data(opt=opt)
     ctx.train_loader = train_loader
-    ctx.counter = 1
+    #ctx.counter = 1
 
     complete_outputs = torch.ones(get_dataset_len(opt['dataset'])).cuda(opt['g'])
     
@@ -498,8 +499,7 @@ def main_worker(opt):
         ctx.epoch = epoch
         adjust_learning_rate(epoch)
         adjust_temperature(epoch, opt)
-        if opt['pilot']:
-            _ = compute_weights_stats(model, criterion, weights_loader) # update sample mean of the weights
+        
         # if opt['sampler'] == 'invtunnel' or opt['sampler'] == 'tunnel':
         #     new_weights = compute_weights_stats(model, criterion, weights_loader)
         #     train_loader.sampler.weights = new_weights
@@ -507,11 +507,14 @@ def main_worker(opt):
         #     # compute dummy weights for visualization
         # if ctx.opt['save']:
         #   _ = compute_weights_stats(model, criterion, weights_loader) 
+        
         # train for one epoch
         train(train_loader, model, criterion, optimizer, epoch, opt)
         # evaluate on validation set
         metrics = validate(val_loader, train_loader, model, criterion, opt)
-
+        # update sample mean of the weights
+        if opt['pilot']:
+            _ = compute_weights_stats(model, criterion, weights_loader) 
         # remember best top@1 and save checkpoint
         top1 = metrics['top1']
         is_best = top1 < best_top1
