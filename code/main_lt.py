@@ -107,6 +107,7 @@ def cfg():
     modatt = False # modulated attention
     dyncount = False
     adjust_classes = False
+    pilot = False # if True, pilot net mode (min dataset exp) and save indices according to their weight
 best_top1 = 0
 
 # for some reason, the db must me created in the global scope
@@ -492,7 +493,8 @@ def main_worker(opt):
         ctx.epoch = epoch
         adjust_learning_rate(epoch)
         adjust_temperature(epoch, opt)
-
+        if opt['pilot']:
+            _ = compute_weights_stats(model, criterion, weights_loader) # update sample mean of the weights
         # if opt['sampler'] == 'invtunnel' or opt['sampler'] == 'tunnel':
         #     new_weights = compute_weights_stats(model, criterion, weights_loader)
         #     train_loader.sampler.weights = new_weights
@@ -534,6 +536,16 @@ def main():
         #               'You may see unexpected behavior when restarting '
         #               'from checkpoints.')
     main_worker(ctx.opt)
+
+    # we need the array of sorted indexes in the form [easy --> hard]
+    if ctx.opt['pilot']:
+        if ctx.opt['sampler'] == 'tunnel':
+            # weights = p
+            _, sorted_idx = torch.sort(ctx.sample_mean, descending=True) 
+        else:
+            # weights = 1-p
+            _, sorted_idx = torch.sort(ctx.sample_mean, descending=False) 
+        torch.save(sorted_idx.cpu().numpy(), 'sorted_idx_' + ctx.opt['dataset'] + '_' + ctx.opt['sampler'] + '.pz')
 
     # if not ctx.opt['evaluate'] and ctx.opt['save']:
     #     with open(os.path.join(ctx.inp_w_dir, 'toweights.pickle'), 'wb') as handle:

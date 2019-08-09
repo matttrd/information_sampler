@@ -25,6 +25,7 @@ def cfg():
     norm = False
     perc = 0 # percentage of most exemples to be removed
     mode = 0 #remove: most difficult (0) | easy samples (1) random (2)
+    pilot_samp = 'default' # sampler used to train the pilot net: default | invtunnel | tunnel | ufoym 
 
 class MyDataset(Dataset):
     def __init__(self, data, source, train, download, transform):
@@ -73,7 +74,7 @@ class LT_Dataset(Dataset):
 
 
 @data_ingredient.capture
-def load_data(name, source, shuffle, frac, perc, mode, norm, opt):
+def load_data(name, source, shuffle, frac, perc, mode, pilot_samp, norm, opt):
 
     if name == 'cifar10':
         transform_train = transforms.Compose([
@@ -175,7 +176,7 @@ def load_data(name, source, shuffle, frac, perc, mode, norm, opt):
     num_classes = get_num_classes(opt)
     if perc > 0:
         print('Dataset reduction of ', perc)
-        sd_idx = np.squeeze(torch.load('sorted_datasets.pz')[name])
+        sd_idx = np.squeeze(torch.load('sorted_idx_' + name + '_' + pilot_samp + '.pz')) 
         if mode == 0:
             idx = sd_idx[int((1 - perc) * train_length):]
         elif mode == 1:
