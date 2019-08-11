@@ -179,7 +179,7 @@ def compute_weights(outputs, targets, idx, criterion):
     return S_prob
 
 crit = nn.CrossEntropyLoss(reduce=False)
-def compute_weights_stats(model, criterion, weights_loader):
+def compute_weights_stats(model, criterion, train_loader):
     opt = ctx.opt
     model.eval()
     weights = []
@@ -514,7 +514,7 @@ def main_worker(opt):
         metrics = validate(val_loader, train_loader, model, criterion, opt)
         # update sample mean of the weights
         if opt['pilot']:
-            _ = compute_weights_stats(model, criterion, weights_loader) 
+            _ = compute_weights_stats(model, criterion, train_loader) 
         # remember best top@1 and save checkpoint
         top1 = metrics['top1']
         is_best = top1 < best_top1
