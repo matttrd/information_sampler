@@ -168,8 +168,8 @@ def build_filename(ctx):
     
 
     t = ''
-    if not marker == '':
-        t = marker + '_'
+    # if not marker == '':
+    #     t = marker + '_'
     t = t + time.strftime('(%b_%d_%H_%M_%S)') + '_opt_'
     opt['time'] = t
     opt['filename'] = t + json.dumps(o, sort_keys=True,
