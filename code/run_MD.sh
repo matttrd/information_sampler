@@ -1,3 +1,4 @@
+python main_lt.py with save=True wd=5e-4 arch='resnet18'
 python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.1
 python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.2
 python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.3
