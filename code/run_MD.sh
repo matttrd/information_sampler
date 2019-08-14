@@ -1,22 +1,22 @@
+python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.1
+python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.2
+python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.3
+python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.4
+python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.5
+python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.6
+python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.7
+python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.1 dataset.mode=1
+python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.2 dataset.mode=1
+python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.3 dataset.mode=1
+python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.4 dataset.mode=1
+python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.5 dataset.mode=1
+python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.6 dataset.mode=1
+python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.7 dataset.mode=1
+python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.1 dataset.mode=2
+python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.2 dataset.mode=2
+python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.3 dataset.mode=2
+python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.4 dataset.mode=2
+python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.5 dataset.mode=2
+python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.6 dataset.mode=2
+python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.7 dataset.mode=2
 python main_lt.py with epochs=30 wd=5e-4 lrs='[[0,0.1],[10,0.01],[20,0.001]]' pilot=True save=True
-python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.1 marker='0_10'
-python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.2 marker='0_20'
-python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.3 marker='0_30'
-python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.4 marker='0_40'
-python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.5 marker='0_50'
-python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.6 marker='0_60'
-python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.7 marker='0_70'
-python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.1 dataset.mode=1 marker='1_10'
-python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.2 dataset.mode=1 marker='1_20'
-python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.3 dataset.mode=1 marker='1_30'
-python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.4 dataset.mode=1 marker='1_40'
-python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.5 dataset.mode=1 marker='1_50'
-python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.6 dataset.mode=1 marker='1_60'
-python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.7 dataset.mode=1 marker='1_70'
-python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.1 dataset.mode=2 marker='2_10'
-python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.2 dataset.mode=2 marker='2_20'
-python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.3 dataset.mode=2 marker='2_30'
-python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.4 dataset.mode=2 marker='2_40'
-python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.5 dataset.mode=2 marker='2_50'
-python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.6 dataset.mode=2 marker='2_60'
-python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.7 dataset.mode=2 marker='2_70'
