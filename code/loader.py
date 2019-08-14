@@ -25,7 +25,7 @@ def cfg():
     perc = 0 # percentage of most exemples to be removed
     mode = 0 #remove: most difficult (0) | easy samples (1) random (2)
     pilot_samp = 'default' # sampler used to train the pilot net: default | invtunnel | tunnel | ufoym 
-    pilot_arch = 'resnet10' # architecture used for the pilot net
+    pilot_arch = 'allcnn' # architecture used for the pilot net
 
 class MyDataset(Dataset):
     def __init__(self, data, source, train, download, transform):
