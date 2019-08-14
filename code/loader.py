@@ -87,6 +87,20 @@ def load_data(name, source, shuffle, frac, perc, mode, pilot_samp, norm, opt):
                                 transforms.ToTensor(),
                                 transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)) if norm else
                  transforms.Normalize((0, 0, 0), (1, 1, 1))])
+    
+    elif name == 'cifar100':
+        transform_train = transforms.Compose([
+            transforms.RandomCrop(32, padding=4),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)) if norm else
+                 transforms.Normalize((0, 0, 0), (1, 1, 1))])
+
+        transform_test = transforms.Compose([
+                                transforms.ToTensor(),
+                                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)) if norm else
+                 transforms.Normalize((0, 0, 0), (1, 1, 1))])
+
     elif name == 'mnist':
         transform_train = transforms.Compose([transforms.ToTensor(),
                             transforms.Normalize((0.1307,), (0.3081,))
@@ -160,7 +174,7 @@ def load_data(name, source, shuffle, frac, perc, mode, pilot_samp, norm, opt):
         test_dataset = LT_Dataset(root='/home/matteo/data/imagenet', 
                             txt='./data/ImageNet_LT/ImageNet_LT_test.txt', 
                             transform=transform_test)
-    elif name in ['cifar10', 'mnist', 'cifar10.1', 'tinyimagenet64']:
+    elif name in ['cifar10', 'cifar100', 'mnist', 'cifar10.1', 'tinyimagenet64']:
         train_dataset = MyDataset(name, source, train=True, download=True,
                         transform=transform_train)    
         test_dataset = MyDataset(name, source, train=False, download=True,
@@ -261,5 +275,5 @@ def load_data(name, source, shuffle, frac, perc, mode, pilot_samp, norm, opt):
     return train_loader, test_loader
 
 def get_dataset_len(name):
-    d = dict(cifar10=50000, tinyimagenet64=100000, imagenet_lt=115846)
+    d = dict(cifar10=50000, cifar100=50000, tinyimagenet64=100000, imagenet_lt=115846)
     return d[name]
