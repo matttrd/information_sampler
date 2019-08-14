@@ -553,8 +553,8 @@ def main():
         else:
             # weights = 1-p
             sorted_w, sorted_idx = torch.sort(ctx.sample_mean, descending=False) 
-        torch.save(sorted_idx.cpu().numpy(), 'sorted_idx_' + ctx.opt['dataset'] + '_' + ctx.opt['sampler'] + '.pz')
-        torch.save(sorted_w.cpu().numpy(), 'sorted_w_' + ctx.opt['dataset'] + '_' + ctx.opt['sampler'] + '.pz')
+        torch.save(sorted_idx.cpu().numpy(), 'sorted_idx_' + ctx.opt['dataset'] + '_' + ctx.opt['arch'] + '_' + ctx.opt['sampler'] + '.pz')
+        torch.save(sorted_w.cpu().numpy(), 'sorted_w_' + ctx.opt['dataset'] + '_' + ctx.opt['arch'] + '_' + ctx.opt['sampler'] + '.pz')
 
     # if not ctx.opt['evaluate'] and ctx.opt['save']:
     #     with open(os.path.join(ctx.inp_w_dir, 'toweights.pickle'), 'wb') as handle:
