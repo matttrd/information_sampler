@@ -549,11 +549,12 @@ def main():
     if ctx.opt['pilot']:
         if ctx.opt['sampler'] == 'tunnel':
             # weights = p
-            _, sorted_idx = torch.sort(ctx.sample_mean, descending=True) 
+            sorted_w, sorted_idx = torch.sort(ctx.sample_mean, descending=True) 
         else:
             # weights = 1-p
-            _, sorted_idx = torch.sort(ctx.sample_mean, descending=False) 
+            sorted_w, sorted_idx = torch.sort(ctx.sample_mean, descending=False) 
         torch.save(sorted_idx.cpu().numpy(), 'sorted_idx_' + ctx.opt['dataset'] + '_' + ctx.opt['sampler'] + '.pz')
+        torch.save(sorted_w.cpu().numpy(), 'sorted_w_' + ctx.opt['dataset'] + '_' + ctx.opt['sampler'] + '.pz')
 
     # if not ctx.opt['evaluate'] and ctx.opt['save']:
     #     with open(os.path.join(ctx.inp_w_dir, 'toweights.pickle'), 'wb') as handle:
