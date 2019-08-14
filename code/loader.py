@@ -259,7 +259,7 @@ def load_data(name, source, shuffle, frac, perc, mode, pilot_samp, pilot_arch, n
         train_dataset = Subset(train_dataset, indices)
         train_length = len(train_dataset)   
 
-    
+    weights_loader = torch.utils.data.DataLoader(train_dataset, batch_size=opt['b'], shuffle=False, num_workers=opt['j'], pin_memory=True) # used for the computation of the weights
     if opt['sampler'] == 'ufoym':
         weights_init = np.get_imbalance_weights(dataset, indices=indices, num_samples=None)
     else:
@@ -274,7 +274,7 @@ def load_data(name, source, shuffle, frac, perc, mode, pilot_samp, pilot_arch, n
             test_dataset, 
             batch_size=opt['b'], shuffle=False, num_workers=opt['j'], pin_memory=True)
 
-    return train_loader, test_loader
+    return train_loader, test_loader, weights_loader
 
 def get_dataset_len(name):
     d = dict(cifar10=50000, cifar100=50000, tinyimagenet64=100000, imagenet_lt=115846)

@@ -179,7 +179,7 @@ def compute_weights(outputs, targets, idx, criterion):
     return S_prob
 
 crit = nn.CrossEntropyLoss(reduce=False)
-def compute_weights_stats(model, criterion, train_loader):
+def compute_weights_stats(model, criterion, loader):
     opt = ctx.opt
     model.eval()
     weights = []
@@ -188,7 +188,7 @@ def compute_weights_stats(model, criterion, train_loader):
     hist_list = []
     
     with torch.no_grad():
-        for batch_idx, (data, target, idx) in enumerate(train_loader):
+        for batch_idx, (data, target, idx) in enumerate(loader):
             data, target = data.cuda(opt['g']), target.cuda(opt['g'])
             output, _ = model(data)
             loss = crit(output, target)
@@ -233,10 +233,10 @@ def compute_weights_stats(model, criterion, train_loader):
         os.makedirs(os.path.join(inp_w_dir, 'tmp'))
         
         # initialize sample mean of the weights
-        ctx.sample_mean = torch.zeros([1, len(train_loader.dataset)]).cuda(opt['g'])     
+        ctx.sample_mean = torch.zeros([1, len(loader.dataset)]).cuda(opt['g'])     
         ctx.sample_mean = torch.zeros_like(ctx.sample_mean)
         # here will be stored weights of the last update
-        ctx.old_weights = torch.zeros([1, len(train_loader.dataset)]).cuda(opt['g'])
+        ctx.old_weights = torch.zeros([1, len(loader.dataset)]).cuda(opt['g'])
         ctx.cum_sum_diff = torch.zeros_like(ctx.old_weights).cuda(opt['g'])   
         ctx.cum_sum = 0
 
@@ -471,7 +471,7 @@ def main_worker(opt):
     cudnn.benchmark = True
 
     # Data loading code
-    train_loader, val_loader = load_data(opt=opt)
+    train_loader, val_loader, weights_loader = load_data(opt=opt)
     ctx.train_loader = train_loader
     #ctx.counter = 1
 
@@ -514,7 +514,7 @@ def main_worker(opt):
         metrics = validate(val_loader, train_loader, model, criterion, opt)
         # update sample mean of the weights
         if opt['pilot']:
-            _ = compute_weights_stats(model, criterion, train_loader) 
+            _ = compute_weights_stats(model, criterion, weights_loader) 
         # remember best top@1 and save checkpoint
         top1 = metrics['top1']
         is_best = top1 < best_top1
