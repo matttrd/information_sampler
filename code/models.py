@@ -343,7 +343,7 @@ class allcnn(nn.Module):
         print(s)
 
     def forward(self, x):
-        return self.m(x)
+        return self.m(x), None
 
 class allcnntt(allcnn):
     name = 'allcnntt'

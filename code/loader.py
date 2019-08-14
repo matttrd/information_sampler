@@ -191,6 +191,8 @@ def load_data(name, source, shuffle, frac, perc, mode, pilot_samp, norm, opt):
     if perc > 0:
         print('Dataset reduction of ', perc)
         sd_idx = np.squeeze(torch.load('sorted_idx_' + name + '_' + pilot_samp + '.pz')) 
+        # sd_idx = torch.load('sorted_datasets.pz')
+        # sd_idx = sd_idx['cifar10'].squeeze()
         if mode == 0:
             idx = sd_idx[int((1 - perc) * train_length):]
         elif mode == 1:
