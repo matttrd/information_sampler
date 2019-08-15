@@ -139,6 +139,10 @@ def build_filename(ctx):
         else:
             dconf[k] = opt[k]
 
+    opt['perc'] = opt['dataset']['perc']
+    opt['norm'] = opt['dataset']['norm']
+    opt['mode'] = opt['dataset']['mode']
+    
     base_whilelist = ['dataset', 'arch']
     blacklist = ['lrs', 'g','save', 'fl', 'tfl', 'dbl', 'o', 'source', '__doc__', 'j', 'print_freq']
     
@@ -165,7 +169,6 @@ def build_filename(ctx):
             oc[k] = oc[k]['name']
     o = oc
     o = {**o, **dconf}
-    
 
     t = ''
     # if not marker == '':
