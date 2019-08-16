@@ -108,6 +108,7 @@ def cfg():
     dyncount = False
     adjust_classes = False
     pilot = False # if True, pilot net mode (min dataset exp) and save indices according to their weight
+    exp = 'MD' # experiment ID
 best_top1 = 0
 
 # for some reason, the db must me created in the global scope
@@ -224,7 +225,7 @@ def compute_weights_stats(model, criterion, loader):
     ctx.histograms['total'].append((hist,bin_edges))
     # update sample mean of the weights and differences (new_weights - old_weights)
     
-    inp_w_dir = os.path.join(opt.get('o'), opt['filename']) +'/weights_dir/'
+    inp_w_dir = os.path.join(opt.get('o'), opt['exp'], opt['filename']) +'/weights_dir/'
     ctx.inp_w_dir = inp_w_dir
     if ctx.counter == 0:  
         if os.path.exists(inp_w_dir) and os.path.isdir(inp_w_dir):
@@ -367,7 +368,7 @@ def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
         return
     opt = ctx.opt
     #fn = os.path.join(opt['o'], opt['arch'], opt['filename']) + '.pth.tar'
-    fn = os.path.join(opt['o'], opt['filename'], 'last_model.pth.tar')
+    fn = os.path.join(opt['o'], opt['exp'], opt['filename'], 'last_model.pth.tar')
     r = gitrev(opt)
     meta = dict(SHA=r[0], STATUS=r[1], DIFF=r[2])
     state.update({'meta': meta})
@@ -375,7 +376,7 @@ def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
     if is_best:
         # filename = os.path.join(opt['o'], opt['arch'], 
         #                     opt['filename']) + '_best.pth.tar'
-        filename = os.path.join(opt['o'], opt['filename'], 
+        filename = os.path.join(opt['o'], opt['exp'], opt['filename'], 
                             'best.pth.tar')
         shutil.copyfile(fn, filename)
 

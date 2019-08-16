@@ -21,7 +21,7 @@ def gitrev(opt):
 def create_basic_logger(ctx, filename, idx=0):
     opt = ctx.opt
     #d = os.path.join(opt.get('o'), opt['arch']) +'/logs'
-    d = os.path.join(opt.get('o'), opt['filename']) +'/logs'
+    d = os.path.join(opt.get('o'), opt['exp'], opt['filename']) +'/logs'
     if not os.path.isdir(d):
         os.makedirs(d)
 
@@ -59,7 +59,7 @@ def create_logger(ctx, idx=0):
         build_filename(ctx)
 
     #d = os.path.join(opt.get('o'), opt['arch']) +'/logs'
-    d = os.path.join(opt.get('o'), opt['filename']) +'/logs'
+    d = os.path.join(opt.get('o'), opt['exp'], opt['filename']) +'/logs'
     if not os.path.isdir(d):
         os.makedirs(d)
     #fn = os.path.join(d, opt['filename']+'.log')
