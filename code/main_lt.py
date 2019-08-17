@@ -369,7 +369,7 @@ def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
     if not ctx.opt['save']:
         return
     opt = ctx.opt
-    if opt['pilots']:
+    if opt['pilot']:
         fn = os.path.join(opt['o'], 'pilots', opt['filename'], 'last_model.pth.tar')
     else:
         fn = os.path.join(opt['o'], opt['exp'], opt['filename'], 'last_model.pth.tar')
@@ -377,12 +377,12 @@ def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
     meta = dict(SHA=r[0], STATUS=r[1], DIFF=r[2])
     state.update({'meta': meta})
     torch.save(state, fn)
-    if is_best:
-        # filename = os.path.join(opt['o'], opt['arch'], 
-        #                     opt['filename']) + '_best.pth.tar'
-        filename = os.path.join(opt['o'], opt['exp'], opt['filename'], 
-                            'best.pth.tar')
-        shutil.copyfile(fn, filename)
+    # if is_best:
+    #     # filename = os.path.join(opt['o'], opt['arch'], 
+    #     #                     opt['filename']) + '_best.pth.tar'
+    #     filename = os.path.join(opt['o'], opt['exp'], opt['filename'], 
+    #                         'best.pth.tar')
+    #     shutil.copyfile(fn, filename)
 
 
 # adjust learning rate and log 
