@@ -79,6 +79,8 @@ class LT_Dataset(Dataset):
 def load_data(name, source, shuffle, frac, perc, mode, pilot_samp, pilot_arch, pilot_ep, norm, opt):
 
     if name == 'cifar10':
+    	# CIFAR_MEAN = ch.tensor([0.4914, 0.4822, 0.4465])
+     #    CIFAR_STD = ch.tensor([0.2023, 0.1994, 0.2010])
         transform_train = transforms.Compose([
             transforms.RandomCrop(32, padding=4),
             transforms.RandomHorizontalFlip(),
@@ -96,13 +98,11 @@ def load_data(name, source, shuffle, frac, perc, mode, pilot_samp, pilot_arch, p
             transforms.RandomCrop(32, padding=4),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)) if norm else
-                 transforms.Normalize((0, 0, 0), (1, 1, 1))])
+            transforms.Normalize([0.5071, 0.4867, 0.4408], [0.2675, 0.2565, 0.2761])])
 
         transform_test = transforms.Compose([
                                 transforms.ToTensor(),
-                                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)) if norm else
-                 transforms.Normalize((0, 0, 0), (1, 1, 1))])
+                               transforms.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761))])
 
     elif name == 'mnist':
         transform_train = transforms.Compose([transforms.ToTensor(),
