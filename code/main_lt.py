@@ -369,8 +369,10 @@ def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
     if not ctx.opt['save']:
         return
     opt = ctx.opt
-    #fn = os.path.join(opt['o'], opt['arch'], opt['filename']) + '.pth.tar'
-    fn = os.path.join(opt['o'], opt['exp'], opt['filename'], 'last_model.pth.tar')
+    if opt['pilots']:
+        fn = os.path.join(opt['o'], 'pilots', opt['filename'], 'last_model.pth.tar')
+    else:
+        fn = os.path.join(opt['o'], opt['exp'], opt['filename'], 'last_model.pth.tar')
     r = gitrev(opt)
     meta = dict(SHA=r[0], STATUS=r[1], DIFF=r[2])
     state.update({'meta': meta})
@@ -566,12 +568,15 @@ def main():
         pilot = {'sorted_idx': sorted_idx.cpu().numpy(), 'sorted_w': sorted_w.cpu().numpy(), 
                  'pilot_directory': ctx.opt['filename'], 'pilot_saved': ctx.opt['save']}
         pilot_fn = 'pilot_' + ctx.opt['dataset'] + '_' + ctx.opt['arch'] + '_' + ctx.opt['sampler'] + '_' + str(ctx.opt['epochs']) + '_epochs'
+        
+        with open(os.path.join(ctx.opt['o'], 'pilots', pilot_fn + '.pkl'), 'wb') as handle:
+            pkl.dump(pilot, handle, protocol=pkl.HIGHEST_PROTOCOL)
+
+    else:
         exp_d = os.path.join(ctx.opt['o'], ctx.opt['exp'])
         if not os.path.isdir(exp_d):
             os.makedirs(exp_d)
-        with open(os.path.join(exp_d, pilot_fn + '.pkl'), 'wb') as handle:
-            pkl.dump(pilot, handle, protocol=pkl.HIGHEST_PROTOCOL)
-
+            
     if not ctx.opt['evaluate'] and ctx.opt['save_w_dyn']:
         with open(os.path.join(ctx.inp_w_dir, 'toweights.pkl'), 'wb') as handle:
             pkl.dump(ctx.toweights, handle, protocol=pkl.HIGHEST_PROTOCOL)
@@ -588,4 +593,3 @@ def main():
         with open(os.path.join(ctx.inp_w_dir, 'weights_differences.pkl'), 'wb') as handle:
             pkl.dump(weights_diff, handle, protocol=pkl.HIGHEST_PROTOCOL)
         shutil.rmtree(os.path.join(ctx.inp_w_dir, 'tmp'))
-
