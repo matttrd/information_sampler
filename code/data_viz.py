@@ -149,6 +149,7 @@ def plot_MD_exp():
     dfc = dfc.filter(items=whitelist)
     dv = dfc[(dfc['val'] == True)]
     dv = dv[dv['e'] == 199]
+    embed()
     # for mode in dv['mode'].unique():
     #   dvm = dv[dv['mode']==mode]
     plt.clf()

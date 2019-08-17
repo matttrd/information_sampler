@@ -126,6 +126,7 @@ def init(name):
     ctx.global_iters = 0
     ctx.epoch = 0
     ctx.opt = init_opt(ctx)
+    ctx.opt['exp'] = '_'.join([ctx.opt['exp'], ctx.opt['arch'], ctx.opt['dataset']])
     if ctx.opt.get('filename', None) is None:
         build_filename(ctx)
 
