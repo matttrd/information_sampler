@@ -6,10 +6,11 @@ import os, json
 import pdb
 import matplotlib.ticker as ticker
 import matplotlib as mpl
-import glob2
-from IPython import embed
+import glob2, argparse
+#from IPython import embed
 from os.path import expanduser
 home = expanduser("~")
+
 
 def set_size():
     fsz = 20
@@ -24,9 +25,15 @@ def set_size():
 
 sns.set('paper')
 colors = ["windows blue", "amber", "greyish", "faded green", "dusty purple"]
-save_dir = home + '/Dropbox/results/'
-base = '../results/'
+
+parser = argparse.ArgumentParser(description='data viz',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+parser.add_argument('--sd', default=f'{home}/Dropbox/results/')
+parser.add_argument('--base', default='../results')
+opt = vars(parser.parse_args())
 sns.set_color_codes()
+
+save_dir = opt['sd']
 
 blacklist = ['lrs', 'B', 'b', 'd', 's', 'ids', 'd', \
             'save', 'metric', 'nc', 'g', 'j', 'env', 'burnin', \
@@ -149,7 +156,6 @@ def plot_MD_exp():
     dfc = dfc.filter(items=whitelist)
     dv = dfc[(dfc['val'] == True)]
     dv = dv[dv['e'] == 199]
-    embed()
     # for mode in dv['mode'].unique():
     #   dvm = dv[dv['mode']==mode]
     plt.clf()
