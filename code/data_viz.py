@@ -34,6 +34,7 @@ opt = vars(parser.parse_args())
 sns.set_color_codes()
 
 save_dir = opt['sd']
+base = opt['base']
 
 blacklist = ['lrs', 'B', 'b', 'd', 's', 'ids', 'd', \
             'save', 'metric', 'nc', 'g', 'j', 'env', 'burnin', \
