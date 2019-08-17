@@ -567,7 +567,7 @@ def main():
             sorted_w, sorted_idx = torch.sort(ctx.sample_mean, descending=False) 
         pilot = {'sorted_idx': sorted_idx.cpu().numpy(), 'sorted_w': sorted_w.cpu().numpy(), 
                  'pilot_directory': ctx.opt['filename'], 'pilot_saved': ctx.opt['save']}
-        pilot_fn = 'pilot_' + ctx.opt['dataset'] + '_' + ctx.opt['arch'] + '_' + ctx.opt['sampler'] + '_' + str(ctx.opt['epochs']) + '_epochs'
+        pilot_fn = 'pilot_' + ctx.opt['dataset'] + '_' + ctx.opt['arch'] + '_' + ctx.opt['sampler']
         
         with open(os.path.join(ctx.opt['o'], 'pilots', pilot_fn + '.pkl'), 'wb') as handle:
             pkl.dump(pilot, handle, protocol=pkl.HIGHEST_PROTOCOL)

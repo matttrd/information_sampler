@@ -193,7 +193,7 @@ def load_data(name, source, shuffle, frac, perc, mode, pilot_samp, pilot_arch, p
     num_classes = get_num_classes(opt)
     if perc > 0:
         print('Dataset reduction of ', perc)
-        fn = pilot_fn = 'pilot_' + name + '_' + pilot_arch + '_' + pilot_samp + '_' + str(pilot_ep) + '_epochs'
+        fn = pilot_fn = 'pilot_' + name + '_' + pilot_arch + '_' + pilot_samp
         with open(os.path.join(opt['o'], 'pilots', fn + '.pkl'), 'rb') as f:
             pilot = pkl.load(f)
         sd_idx = np.squeeze(pilot['sorted_idx'])
