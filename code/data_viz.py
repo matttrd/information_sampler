@@ -7,7 +7,7 @@ import pdb
 import matplotlib.ticker as ticker
 import matplotlib as mpl
 import glob2, argparse
-#from IPython import embed
+from IPython import embed
 from os.path import expanduser
 home = expanduser("~")
 
@@ -126,7 +126,7 @@ def plot_MD_exp():
         keywords = json.loads(fstr)
         if 'pilot' not in keywords.keys():
             ex.append(f)
-
+    
     for f in ex:
         #find it in the file name
         fstr = '{' + f.split('{')[1].split('}')[0] + '}'
@@ -135,21 +135,19 @@ def plot_MD_exp():
         if 'mode' not in keywords.keys() and 'perc' in keywords.keys():
             keywords['mode'] = 0
         
-        elif 'mode' not in keywords.keys() and 'perc' not in keywords.keys():# and not 'pilot' in keywords.keys():
+        elif 'mode' not in keywords.keys() and 'perc' not in keywords.keys():
             keywords['mode'] = 2
             keywords['perc'] = 0
 
-        # else:
-        #     keywords['mode'] = -1
-        #     keywords['perc'] = 0
 
         kws = dict()
         kws['mode'] = keywords['mode']
         kws['perc'] = keywords['perc']
-    
+        if kws['mode'] == 0 and kws['perc']==0.1:
+            embed()
         di = loadlog(f, kws=kws)
         d.append(di)
-
+    
     df = pd.concat(d)
     whitelist = ['top1','perc','mode', 'val', 'e']
     df = df[(df['summary'] == True)]
@@ -157,6 +155,7 @@ def plot_MD_exp():
     dfc = dfc.filter(items=whitelist)
     dv = dfc[(dfc['val'] == True)]
     dv = dv[dv['e'] == 199]
+
     # for mode in dv['mode'].unique():
     #   dvm = dv[dv['mode']==mode]
     plt.clf()

@@ -125,12 +125,12 @@ best_top1 = 0
 def init(name):
     ctx.global_iters = 0
     ctx.epoch = 0
-    ctx.opt = init_opt(ctx)
-    ctx.opt['exp'] = '_'.join([ctx.opt['exp'], ctx.opt['arch'], ctx.opt['dataset']])
+    ctx.opt = init_opt(ctx) 
     if ctx.opt.get('filename', None) is None:
         build_filename(ctx)
 
     ctx.opt['dataset'] = name
+    ctx.opt['exp'] = '_'.join([ctx.opt['exp'], ctx.opt['arch'], ctx.opt['dataset']])
     ctx.metrics = dict()
     ctx.metrics['best_top1'] = best_top1
     ctx.hooks = None
