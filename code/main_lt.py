@@ -572,10 +572,6 @@ def main():
         with open(os.path.join(ctx.opt['o'], 'pilots', pilot_fn + '.pkl'), 'wb') as handle:
             pkl.dump(pilot, handle, protocol=pkl.HIGHEST_PROTOCOL)
 
-    else:
-        exp_d = os.path.join(ctx.opt['o'], ctx.opt['exp'])
-        if not os.path.isdir(exp_d):
-            os.makedirs(exp_d)
             
     if not ctx.opt['evaluate'] and ctx.opt['save_w_dyn']:
         with open(os.path.join(ctx.inp_w_dir, 'toweights.pkl'), 'wb') as handle:
