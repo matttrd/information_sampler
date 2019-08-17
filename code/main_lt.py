@@ -225,14 +225,12 @@ def compute_weights_stats(model, criterion, loader):
     ctx.histograms['total'].append((hist,bin_edges))
     # update sample mean of the weights and differences (new_weights - old_weights)
     
-    inp_w_dir = os.path.join(opt.get('o'), opt['exp'], opt['filename']) +'/weights_dir/'
-    ctx.inp_w_dir = inp_w_dir
-    if ctx.counter == 0:  
-        if os.path.exists(inp_w_dir) and os.path.isdir(inp_w_dir):
-            shutil.rmtree(inp_w_dir)
-        os.makedirs(inp_w_dir)
-        os.makedirs(os.path.join(inp_w_dir, 'tmp'))
-        
+    if ctx.counter == 0:
+        if ctx.opt['save']:
+            inp_w_dir = os.path.join(opt.get('o'), opt['exp'], opt['filename']) +'/weights_dir/'
+            ctx.inp_w_dir = inp_w_dir
+            os.makedirs(inp_w_dir)
+            os.makedirs(os.path.join(inp_w_dir, 'tmp'))
         # initialize sample mean of the weights
         ctx.sample_mean = torch.zeros([1, len(loader.dataset)]).cuda(opt['g'])     
         ctx.sample_mean = torch.zeros_like(ctx.sample_mean)
@@ -248,8 +246,10 @@ def compute_weights_stats(model, criterion, loader):
     ctx.cum_sum_diff = cum_abs_diff(ctx.cum_sum, ctx.old_weights, weights)
     ctx.cum_sum += torch.abs(weights)
 
-    with open(os.path.join(inp_w_dir, 'tmp', 'weights_differences_' + str(ctx.counter) + '.pickle'), 'wb') as handle:
-        pkl.dump(difference.cpu().numpy(), handle, protocol=pkl.HIGHEST_PROTOCOL)
+    if ctx.opt['save']:
+        with open(os.path.join(inp_w_dir, 'tmp', 'weights_differences_' + str(ctx.counter) + '.pickle'), 'wb') as handle:
+            pkl.dump(difference.cpu().numpy(), handle, protocol=pkl.HIGHEST_PROTOCOL)
+            
     ctx.old_weights = weights
 
     return weights
@@ -554,8 +554,14 @@ def main():
         else:
             # weights = 1-p
             sorted_w, sorted_idx = torch.sort(ctx.sample_mean, descending=False) 
-        torch.save(sorted_idx.cpu().numpy(), 'sorted_idx_' + ctx.opt['dataset'] + '_' + ctx.opt['arch'] + '_' + ctx.opt['sampler'] + '.pz')
-        torch.save(sorted_w.cpu().numpy(), 'sorted_w_' + ctx.opt['dataset'] + '_' + ctx.opt['arch'] + '_' + ctx.opt['sampler'] + '.pz')
+        pilot = {'sorted_idx': sorted_idx.cpu().numpy(), 'sorted_w': sorted_w.cpu().numpy(), 
+                 'pilot_directory': ctx.opt['filename'], 'pilot_saved': ctx.opt['save']}
+        pilot_fn = 'pilot_' + ctx.opt['dataset'] + '_' + ctx.opt['arch'] + '_' + ctx.opt['sampler'] + '_' + str(ctx.opt['epochs']) + '_epochs'
+        exp_d = os.path.join(ctx.opt['o'], ctx.opt['exp'])
+        if not os.path.isdir(exp_d):
+            os.makedirs(exp_d)
+        with open(os.path.join(exp_d, pilot_fn + '.pkl'), 'wb') as handle:
+            pkl.dump(pilot, handle, protocol=pkl.HIGHEST_PROTOCOL)
 
     # if not ctx.opt['evaluate'] and ctx.opt['save']:
     #     with open(os.path.join(ctx.inp_w_dir, 'toweights.pickle'), 'wb') as handle:

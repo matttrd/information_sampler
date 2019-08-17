@@ -12,6 +12,7 @@ import random
 from models import get_num_classes
 from PIL import Image
 import os
+import pickle as pkl 
 
 data_ingredient = Ingredient('dataset')
 
@@ -26,6 +27,7 @@ def cfg():
     mode = 0 #remove: most difficult (0) | easy samples (1) random (2)
     pilot_samp = 'default' # sampler used to train the pilot net: default | invtunnel | tunnel | ufoym 
     pilot_arch = 'allcnn' # architecture used for the pilot net
+    pilot_ep = 1 # epochs in the training of the pilot net
 
 class MyDataset(Dataset):
     def __init__(self, data, source, train, download, transform):
@@ -74,7 +76,7 @@ class LT_Dataset(Dataset):
 
 
 @data_ingredient.capture
-def load_data(name, source, shuffle, frac, perc, mode, pilot_samp, pilot_arch, norm, opt):
+def load_data(name, source, shuffle, frac, perc, mode, pilot_samp, pilot_arch, pilot_ep, norm, opt):
 
     if name == 'cifar10':
         transform_train = transforms.Compose([
@@ -191,7 +193,10 @@ def load_data(name, source, shuffle, frac, perc, mode, pilot_samp, pilot_arch, n
     num_classes = get_num_classes(opt)
     if perc > 0:
         print('Dataset reduction of ', perc)
-        sd_idx = np.squeeze(torch.load('sorted_idx_' + name + '_' + pilot_arch + '_' + pilot_samp + '.pz')) 
+        fn = pilot_fn = 'pilot_' + name + '_' + pilot_arch + '_' + pilot_samp + '_' + str(pilot_ep) + '_epochs'
+        with open(os.path.join(opt['o'], opt['exp'], fn + '.pkl'), 'rb') as f:
+            pilot = pkl.load(f)
+        sd_idx = np.squeeze(pilot['sorted_idx'])
         if mode == 0:
             idx = sd_idx[int((1 - perc) * train_length):]
         elif mode == 1:
