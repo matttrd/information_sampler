@@ -110,6 +110,7 @@ def cfg():
     pilot = False # if True, pilot net mode (min dataset exp) and save indices according to their weight
     exp = 'MD' # experiment ID
     save_w_dyn = False
+    bce = False #binary xce
 best_top1 = 0
 
 # for some reason, the db must me created in the global scope
@@ -150,7 +151,7 @@ def compute_weights(outputs, targets, idx, criterion):
     output = outputs.detach()
     for i, index in enumerate(idx):
         o = output[i].reshape(-1, output.shape[1])
-        ctx.complete_outputs[index] = criterion(o, targets[i].unsqueeze(0))
+        ctx.complete_outputs[index] = criterion(o, targets[i].unsqueeze(0)).mean()
         ctx.count[index] += 1
         if ctx.opt['adjust_classes']:
             ctx.class_count[targets[i]] += 1
@@ -181,7 +182,6 @@ def compute_weights(outputs, targets, idx, criterion):
         S_prob = 1 - torch.exp(-complete_losses / temp)
     return S_prob
 
-crit = nn.CrossEntropyLoss(reduce=False)
 def compute_weights_stats(model, criterion, loader, save_stats):
     opt = ctx.opt
     model.eval()
@@ -194,7 +194,7 @@ def compute_weights_stats(model, criterion, loader, save_stats):
         for batch_idx, (data, target, idx) in enumerate(loader):
             data, target = data.cuda(opt['g']), target.cuda(opt['g'])
             output, _ = model(data)
-            loss = crit(output, target)
+            loss = criterion(output, target)
             if ctx.opt['sampler'] == 'tunnel':
                 w = torch.exp(-loss / ctx.opt['temperature'] )
             else:
@@ -260,7 +260,7 @@ def compute_weights_stats(model, criterion, loader, save_stats):
 def runner(input, target, model, criterion, optimizer, idx):
     # compute output
         output, _ = model(input)
-        loss = criterion(output, target)
+        loss = criterion(output, target).mean()
 
         # measure accuracy and record loss
         ctx.errors.add(output.data, target.data)
@@ -337,7 +337,7 @@ def validate(val_loader, train_dataset, model, criterion, opt):
 
             # compute output
             output, _ = model(input)
-            loss = criterion(output, target)
+            loss = criterion(output, target).mean()
             preds.append(output.max(dim=1)[1])
             targets.append(target)
 
@@ -449,7 +449,10 @@ def main_worker(opt):
                         output_device=opt['g']).cuda()
 
     # define loss function (criterion) and optimizer
-    criterion = nn.CrossEntropyLoss().cuda(opt['g'])
+    if opt['bce']:
+    	criterion = nn.BCEWithLogitsLoss(reduction='none').cuda(opt['g'])
+    else:
+    	criterion = nn.CrossEntropyLoss(reduction='none').cuda(opt['g'])
 
     optimizer = torch.optim.SGD(model.parameters(), opt['lr'],
                                 momentum=opt['momentum'],
