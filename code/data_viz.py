@@ -143,8 +143,7 @@ def plot_MD_exp():
         kws = dict()
         kws['mode'] = keywords['mode']
         kws['perc'] = keywords['perc']
-        if kws['mode'] == 0 and kws['perc']==0.1:
-            embed()
+
         di = loadlog(f, kws=kws)
         d.append(di)
     
