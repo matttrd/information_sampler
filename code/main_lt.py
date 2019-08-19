@@ -256,14 +256,24 @@ def compute_weights_stats(model, criterion, loader, save_stats):
 
     return weights
 
+
+
 @batch_hook(ctx, mode='train')
 def runner(input, target, model, criterion, optimizer, idx):
     # compute output
+
         output, _ = model(input)
+
+        if ctx.opt['bce']:
+            orig_target = target.clone()
+            target = logical_index(target, output.shape).float()
+        else:
+            orig_target = target
+
         loss = criterion(output, target).mean()
 
         # measure accuracy and record loss
-        ctx.errors.add(output.data, target.data)
+        ctx.errors.add(output.data, orig_target.data)
         ctx.losses.add(loss.item())
 
         # compute gradient and do SGD step
@@ -337,11 +347,18 @@ def validate(val_loader, train_dataset, model, criterion, opt):
 
             # compute output
             output, _ = model(input)
+
+            if ctx.opt['bce']:
+                orig_target = target.clone()
+                target = logical_index(target, output.shape).float()
+            else:
+                orig_target = target
+
             loss = criterion(output, target).mean()
             preds.append(output.max(dim=1)[1])
-            targets.append(target)
+            targets.append(orig_target)
 
-            errors.add(output, target)
+            errors.add(output, orig_target)
             losses.add(loss.item())
          
             loss = losses.value()[0]
@@ -356,7 +373,7 @@ def validate(val_loader, train_dataset, model, criterion, opt):
     stats = {'loss': loss, 'top1': top1}
 
     if ctx.opt['dataset'] == 'imagenet_lt':
-        many_acc_top1, median_acc_top1, low_acc_top1 = shot_acc(preds, targets, train_dataset)
+        many_acc_top1, median_acc_top1, low_acc_top1 = shot_acc(preds, orig_target, train_dataset)
         stats['many_acc_top1'] = many_acc_top1
         stats['median_acc_top1'] = median_acc_top1
         stats['low_acc_top1'] = low_acc_top1
@@ -450,9 +467,9 @@ def main_worker(opt):
 
     # define loss function (criterion) and optimizer
     if opt['bce']:
-    	criterion = nn.BCEWithLogitsLoss(reduction='none').cuda(opt['g'])
+        criterion = nn.BCEWithLogitsLoss(reduction='none').cuda(opt['g'])
     else:
-    	criterion = nn.CrossEntropyLoss(reduction='none').cuda(opt['g'])
+        criterion = nn.CrossEntropyLoss(reduction='none').cuda(opt['g'])
 
     optimizer = torch.optim.SGD(model.parameters(), opt['lr'],
                                 momentum=opt['momentum'],
