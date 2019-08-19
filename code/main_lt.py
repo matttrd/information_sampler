@@ -249,7 +249,7 @@ def compute_weights_stats(model, criterion, loader, save_stats):
     ctx.cum_sum += torch.abs(weights)
 
     if save_stats:
-        with open(os.path.join(inp_w_dir, 'tmp', 'weights_differences_' + str(ctx.counter) + '.pkl'), 'wb') as handle:
+        with open(os.path.join(ctx.inp_w_dir, 'tmp', 'weights_differences_' + str(ctx.counter) + '.pkl'), 'wb') as handle:
             pkl.dump(difference.cpu().numpy(), handle, protocol=pkl.HIGHEST_PROTOCOL)
             
     ctx.old_weights = weights
