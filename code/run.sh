@@ -1,7 +1,18 @@
-python main_lt.py with b=256 wd=5e-4 arch='resnet10' marker='invtunnel' lrs='[[0,0.1],[30,0.01],[60,0.001],[80,0.0001]]' epochs=90 j=10 sampler='invtunnel' temperature=1. dataset.name='imagenet_lt' save=True tfl=True
-python main_lt.py with b=256 wd=5e-4 arch='resnet10' marker='invtunnel' lrs='[[0,0.1],[30,0.01],[60,0.001],[80,0.0001]]' epochs=90 j=10 sampler='invtunnel' temperature=1. dataset.name='imagenet_lt' save=True tfl=True adjust_classes=True
-python main_lt.py with b=256 wd=5e-4 arch='resnet10' marker='invtunnel' lrs='[[0,0.1],[30,0.01],[60,0.001],[80,0.0001]]' epochs=90 j=10 sampler='invtunnel' temperature=1. dataset.name='imagenet_lt' save=True tfl=True bce=True
-python main_lt.py with b=256 wd=5e-4 arch='resnet10' marker='invtunnel' lrs='[[0,0.1],[30,0.01],[60,0.001],[80,0.0001]]' epochs=90 j=10 sampler='invtunnel' temperature=1. dataset.name='imagenet_lt' save=True tfl=True adjust_classes=True bce=True
+#C100
+# python main_lt.py with exp='sampler' wd=5e-4 arch='resnet10' marker='invtunnel' j=10 sampler='invtunnel' temperature=1. dataset.name='cifar10' save=True tfl=True
+# python main_lt.py with exp='sampler' wd=5e-4 arch='resnet10' marker='invtunnel' j=10 sampler='invtunnel' temperature=1. dataset.name='cifar10' save=True tfl=True adjust_classes=True
+python main_lt.py with exp='sampler' wd=5e-4 arch='resnet10' marker='invtunnel' j=10 sampler='invtunnel' temperature=1. dataset.name='cifar100' save=True tfl=True bce=True
+python main_lt.py with exp='sampler' wd=5e-4 arch='resnet10' marker='invtunnel' j=10 sampler='invtunnel' temperature=1. dataset.name='cifar100' save=True tfl=True adjust_classes=True bce=True
+# C10
+# python main_lt.py with exp='sampler' wd=5e-4 arch='resnet10' marker='invtunnel' j=10 sampler='invtunnel' temperature=1. dataset.name='cifar10' save=True tfl=True
+# python main_lt.py with exp='sampler' wd=5e-4 arch='resnet10' marker='invtunnel' j=10 sampler='invtunnel' temperature=1. dataset.name='cifar10' save=True tfl=True adjust_classes=True
+python main_lt.py with exp='sampler' wd=5e-4 arch='resnet10' marker='invtunnel' j=10 sampler='invtunnel' temperature=1. dataset.name='cifar10' save=True tfl=True bce=True
+python main_lt.py with exp='sampler' wd=5e-4 arch='resnet10' marker='invtunnel' j=10 sampler='invtunnel' temperature=1. dataset.name='cifar10' save=True tfl=True adjust_classes=True bce=True
+# imagenet
+python main_lt.py with exp='sampler' b=128 wd=5e-4 arch='resnet10' marker='invtunnel' lrs='[[0,0.1],[30,0.01],[60,0.001],[80,0.0001]]' epochs=90 j=10 sampler='invtunnel' temperature=1. dataset.name='imagenet_lt' save=True tfl=True
+python main_lt.py with exp='sampler' b=128 wd=5e-4 arch='resnet10' marker='invtunnel' lrs='[[0,0.1],[30,0.01],[60,0.001],[80,0.0001]]' epochs=90 j=10 sampler='invtunnel' temperature=1. dataset.name='imagenet_lt' save=True tfl=True adjust_classes=True
+python main_lt.py with exp='sampler' b=128 wd=5e-4 arch='resnet10' marker='invtunnel' lrs='[[0,0.1],[30,0.01],[60,0.001],[80,0.0001]]' epochs=90 j=10 sampler='invtunnel' temperature=1. dataset.name='imagenet_lt' save=True tfl=True bce=True
+python main_lt.py with exp='sampler' b=128 wd=5e-4 arch='resnet10' marker='invtunnel' lrs='[[0,0.1],[30,0.01],[60,0.001],[80,0.0001]]' epochs=90 j=10 sampler='invtunnel' temperature=1. dataset.name='imagenet_lt' save=True tfl=True adjust_classes=True bce=True
 #python main_lt.py with g=2 wd=5e-4 marker='tunnel' lrs='[[0,0.1],[10,0.01],[20,0.001]]' epochs=30 j=10 sampler='tunnel' temperature=10. save=True tfl=True
 # python main_lt.py with g=2 wd=5e-4 marker='invtunnel' lrs='[[0,0.1],[10,0.01],[20,0.001]]' epochs=30 j=10 sampler='invtunnel' temperature=10. save=True tfl=True
 # python main_lt.py with g=2 wd=5e-4 marker='plain_att' lrs='[[0,0.1],[10,0.01],[20,0.001]]' epochs=30 j=10 modatt=True save=True tfl=True
