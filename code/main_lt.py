@@ -266,14 +266,14 @@ def runner(input, target, model, criterion, optimizer, idx):
 
         if ctx.opt['bce']:
             orig_target = target.clone()
-            target = logical_index(target, output.shape).float()
+            new_target = logical_index(target, output.shape).float()
         else:
-            orig_target = target
+            new_target = target
 
-        loss = criterion(output, target).mean()
+        loss = criterion(output, new_target).mean()
 
         # measure accuracy and record loss
-        ctx.errors.add(output.data, orig_target.data)
+        ctx.errors.add(output.data, target.data)
         ctx.losses.add(loss.item())
 
         # compute gradient and do SGD step
@@ -350,15 +350,15 @@ def validate(val_loader, train_dataset, model, criterion, opt):
 
             if ctx.opt['bce']:
                 orig_target = target.clone()
-                target = logical_index(target, output.shape).float()
+                new_target = logical_index(target, output.shape).float()
             else:
-                orig_target = target
+                new_target = target
 
-            loss = criterion(output, target).mean()
+            loss = criterion(output, new_target).mean()
             preds.append(output.max(dim=1)[1])
-            targets.append(orig_target)
+            targets.append(target)
 
-            errors.add(output, orig_target)
+            errors.add(output, target)
             losses.add(loss.item())
          
             loss = losses.value()[0]
@@ -373,7 +373,7 @@ def validate(val_loader, train_dataset, model, criterion, opt):
     stats = {'loss': loss, 'top1': top1}
 
     if ctx.opt['dataset'] == 'imagenet_lt':
-        many_acc_top1, median_acc_top1, low_acc_top1 = shot_acc(preds, orig_target, train_dataset)
+        many_acc_top1, median_acc_top1, low_acc_top1 = shot_acc(preds, target, train_dataset)
         stats['many_acc_top1'] = many_acc_top1
         stats['median_acc_top1'] = median_acc_top1
         stats['low_acc_top1'] = low_acc_top1
