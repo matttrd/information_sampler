@@ -341,5 +341,5 @@ def load_data(name, source, shuffle, frac, perc, mode, pilot_samp, pilot_arch, p
     return train_loader, test_loader, weights_loader
 
 def get_dataset_len(name):
-    d = dict(cifar10=50000, cifar100=50000, tinyimagenet64=100000, imagenet_lt=115846)
+    d = dict(cifar10=50000, cifar100=50000, tinyimagenet64=100000, imagenet_lt=115846, imagenet=1281167)
     return d[name]
