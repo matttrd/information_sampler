@@ -385,7 +385,7 @@ def validate(val_loader, train_dataset, model, criterion, opt):
     stats = {'loss': loss, 'top1': top1}
 
     if ctx.opt['dataset'] == 'imagenet_lt':
-        many_acc_top1, median_acc_top1, low_acc_top1 = shot_acc(preds, targets, train_dataset)
+        many_acc_top1, median_acc_top1, low_acc_top1 = shot_acc(preds, target, train_dataset)
         stats['many_acc_top1'] = many_acc_top1
         stats['median_acc_top1'] = median_acc_top1
         stats['low_acc_top1'] = low_acc_top1
@@ -462,7 +462,7 @@ def main_worker(opt):
         elif opt['dataset'] == 'cifar100' and opt['arch'] in ['resnet10', 'resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152']:
             print("=> creating model '{}'".format(opt['arch']))
             model = getattr(cifar_models, opt['arch'])(num_classes=100)
-        elif opt['dataset'] == 'imagenet_lt' and opt['arch'] in ['resnet10', 'resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152']:
+        elif 'imagenet' in opt['dataset'] and not '32' in opt['dataset'] and opt['arch'] in ['resnet10', 'resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152']:
             print("=> creating model '{}'".format(opt['arch']))
             model = getattr(imagenet_models, opt['arch'])(num_classes=1000, use_att=opt['modatt'])
         else:
