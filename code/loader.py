@@ -13,6 +13,7 @@ from models import get_num_classes
 from PIL import Image
 import os
 import pickle as pkl 
+#import folder
 
 data_ingredient = Ingredient('dataset')
 
@@ -37,6 +38,10 @@ class MyDataset(Dataset):
             self.data =  datasets.CIFAR100(source, train=train, download=download, transform=transform)
         elif data == 'tinyimagenet64':
             source = source + 'tiny-imagenet-200/'
+            ddir = source + 'train/' if train else source+'val/'
+            self.data = datasets.ImageFolder(ddir, transform=transform)
+        elif data == 'imagenet':
+            source = source + 'imagenet/'
             ddir = source + 'train/' if train else source+'val/'
             self.data = datasets.ImageFolder(ddir, transform=transform)
         else:
@@ -74,6 +79,57 @@ class LT_Dataset(Dataset):
 
         return data, target, index
 
+
+class Lighting(object):
+    # Lighting noise (AlexNet - style PCA - based noise)
+
+    def __init__(self, alphastd, eigval, eigvec):
+        self.alphastd = alphastd
+        self.eigval = eigval
+        self.eigvec = eigvec
+
+    def __call__(self, img):
+        if self.alphastd == 0:
+            return img
+
+        alpha = img.new().resize_(3).normal_(0, self.alphastd)
+        rgb = self.eigvec.type_as(img).clone()\
+            .mul(alpha.view(1, 3).expand(3, 3))\
+            .mul(self.eigval.view(1, 3).expand(3, 3))\
+            .sum(1).squeeze()
+
+        return img.add(rgb.view(3, 1, 1).expand_as(img))
+
+
+IMAGENET_MEAN = torch.tensor([0.485, 0.456, 0.406])
+IMAGENET_STD = torch.tensor([0.229, 0.224, 0.225])
+IMAGENET_PCA = {
+    'eigval':torch.Tensor([0.2175, 0.0188, 0.0045]),
+    'eigvec':torch.Tensor([
+        [-0.5675,  0.7192,  0.4009],
+        [-0.5808, -0.0045, -0.8140],
+        [-0.5836, -0.6948,  0.4203],
+    ])
+}
+
+
+TRAIN_TRANSFORMS_224 = transforms.Compose([
+        transforms.RandomResizedCrop(224),
+        transforms.RandomHorizontalFlip(),
+        transforms.ColorJitter(
+            brightness=0.1,
+            contrast=0.1,
+            saturation=0.1
+        ),
+        transforms.ToTensor(),
+        Lighting(0.05, IMAGENET_PCA['eigval'], 
+                      IMAGENET_PCA['eigvec'])
+    ])
+TEST_TRANSFORMS_224 = transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+    ])
 
 @data_ingredient.capture
 def load_data(name, source, shuffle, frac, perc, mode, pilot_samp, pilot_arch, pilot_ep, norm, opt):
@@ -156,6 +212,10 @@ def load_data(name, source, shuffle, frac, perc, mode, pilot_samp, pilot_arch, p
             transforms.ToTensor(),
             transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
         ])
+    
+    elif name == 'imagenet':
+    	transform_train = TRAIN_TRANSFORMS_224
+    	transform_test  = TEST_TRANSFORMS_224
     else:
         raise NotImplementedError
     
@@ -177,12 +237,12 @@ def load_data(name, source, shuffle, frac, perc, mode, pilot_samp, pilot_arch, p
         test_dataset = LT_Dataset(root='/home/matteo/data/imagenet', 
                             txt='./data/ImageNet_LT/ImageNet_LT_test.txt', 
                             transform=transform_test)
-    elif name in ['cifar10', 'cifar100', 'mnist', 'cifar10.1', 'tinyimagenet64']:
+    elif name in ['imagenet', 'cifar10', 'cifar100', 'mnist', 'cifar10.1', 'tinyimagenet64']:
         train_dataset = MyDataset(name, source, train=True, download=True,
                         transform=transform_train)    
         test_dataset = MyDataset(name, source, train=False, download=True,
                         transform=transform_test)
-    
+
     else:
         raise NotImplementedError
 
