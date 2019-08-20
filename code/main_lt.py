@@ -25,6 +25,7 @@ import pickle as pkl
 import cifar_models
 import imagenet_models
 from utils_lt import shot_acc
+from IPython import embed
 
 # local thread used as a global context
 ctx = threading.local()
@@ -151,7 +152,12 @@ def compute_weights(outputs, targets, idx, criterion):
     output = outputs.detach()
     for i, index in enumerate(idx):
         o = output[i].reshape(-1, output.shape[1])
-        ctx.complete_outputs[index] = criterion(o, targets[i].unsqueeze(0)).mean()
+        if ctx.opt['bce']:
+            new_targets = logical_index(targets, output.shape).float()
+        else:
+            new_targets = targets
+
+        ctx.complete_outputs[index] = criterion(o, new_targets[i].unsqueeze(0)).mean()
         ctx.count[index] += 1
         if ctx.opt['adjust_classes']:
             ctx.class_count[targets[i]] += 1
@@ -194,6 +200,12 @@ def compute_weights_stats(model, criterion, loader, save_stats):
         for batch_idx, (data, target, idx) in enumerate(loader):
             data, target = data.cuda(opt['g']), target.cuda(opt['g'])
             output, _ = model(data)
+
+            if ctx.opt['bce']:
+                new_target = logical_index(target, output.shape).float()
+            else:
+                new_target = target
+
             loss = criterion(output, target)
             if ctx.opt['sampler'] == 'tunnel':
                 w = torch.exp(-loss / ctx.opt['temperature'] )
