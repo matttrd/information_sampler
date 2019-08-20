@@ -26,4 +26,4 @@ python main_lt.py with dataset.name='cifar100' save=True wd=5e-4 arch='resnet18'
 python main_lt.py with dataset.name='cifar100' save=True wd=5e-4 arch='resnet18' dataset.perc=0.7 dataset.mode=2 dataset.pilot_arch='resnet10'
 python main_lt.py with dataset.name='cifar100' save=True wd=5e-4 arch='resnet18' dataset.perc=0.8 dataset.mode=2 dataset.pilot_arch='resnet10'
 python main_lt.py with dataset.name='cifar100' save=True wd=5e-4 arch='resnet18' dataset.perc=0.9 dataset.mode=2 dataset.pilot_arch='resnet10'
-#python main_lt.py with dataset.name='cifar100' epochs=20 wd=1e-3 arch='resnet10' pilot=True save=True
+python main_lt.py with dataset.name='cifar100' epochs=20 wd=1e-3 arch='resnet10' pilot=True save=True
