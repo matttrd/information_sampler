@@ -385,7 +385,7 @@ def validate(val_loader, train_dataset, model, criterion, opt):
     stats = {'loss': loss, 'top1': top1}
 
     if ctx.opt['dataset'] == 'imagenet_lt':
-        many_acc_top1, median_acc_top1, low_acc_top1 = shot_acc(preds, target, train_dataset)
+        many_acc_top1, median_acc_top1, low_acc_top1 = shot_acc(preds, targets, train_dataset)
         stats['many_acc_top1'] = many_acc_top1
         stats['median_acc_top1'] = median_acc_top1
         stats['low_acc_top1'] = low_acc_top1
