@@ -508,11 +508,11 @@ def main_worker(opt):
     cudnn.benchmark = True
 
     # Data loading code
-    train_loader, val_loader, weights_loader = load_data(opt=opt)
+    train_loader, val_loader, weights_loader, train_length = load_data(opt=opt)
     ctx.train_loader = train_loader
     #ctx.counter = 1
 
-    complete_outputs = torch.ones(get_dataset_len(opt['dataset'])).cuda(opt['g'])
+    complete_outputs = torch.ones(train_length).cuda(opt['g'])
     
     if opt['adjust_classes']:
         ctx.class_count = torch.zeros(1000).cuda(opt['g'])

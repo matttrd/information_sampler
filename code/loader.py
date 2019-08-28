@@ -269,8 +269,9 @@ def load_data(name, source, shuffle, frac, perc, mode, pilot_samp, pilot_arch, p
         mask = np.ones(train_length, dtype=bool)
         mask[idx] = False
         indices = indices[mask]
-        train_dataset = Subset(train_dataset, indices)
-
+        # train_dataset = Subset(train_dataset, indices)
+        train_dataset.data.data = train_dataset.data.data[indices,:,:,:]
+        train_dataset.data.targets = [train_dataset.data.targets[k] for k in list(indices)]
         train_length = len(train_dataset)
         print('New Dataset length is ', train_length)
 
@@ -338,7 +339,7 @@ def load_data(name, source, shuffle, frac, perc, mode, pilot_samp, pilot_arch, p
             test_dataset, 
             batch_size=opt['b'], shuffle=False, num_workers=opt['j'], pin_memory=True)
 
-    return train_loader, test_loader, weights_loader
+    return train_loader, test_loader, weights_loader, train_length
 
 def get_dataset_len(name):
     d = dict(cifar10=50000, cifar100=50000, tinyimagenet64=100000, imagenet_lt=115846, imagenet=1281167)
