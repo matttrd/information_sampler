@@ -30,6 +30,7 @@ parser = argparse.ArgumentParser(description='data viz',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('--sd', default=f'{home}/Dropbox/results/')
 parser.add_argument('--base', default='../results')
+#parser.add_argument('--exp', default='', help='marker for filename')
 opt = vars(parser.parse_args())
 sns.set_color_codes()
 
@@ -159,7 +160,8 @@ def plot_MD_exp():
     #   dvm = dv[dv['mode']==mode]
     plt.clf()
     ax_top1 = sns.lineplot(x='perc', y='top1', hue='mode', data=dv)
-    plt.savefig(os.path.join(save_dir + 'MD.pdf'), 
+    bn = opt['base'].split('/')[-1]
+    plt.savefig(os.path.join(save_dir + bn + '.pdf'), 
                 bbox_inches='tight', format='pdf')
     #ax_top1.set(yscale="log")
     fm = ticker.ScalarFormatter()

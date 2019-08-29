@@ -1,5 +1,6 @@
+python hyperoptim.py -c "python main_lt.py with exp='MD_normalpilot_sampler' sampler='invtunnel' wd=5e-4 arch='resnet18' dataset.pilot_arch='resnet10' save=True" -p '{"dataset.mode":[0,1,2], "dataset.perc": [0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9]}'
 #python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.pilot_arch='resnet10'
-python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.1 dataset.pilot_arch='resnet10'
+#python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.1 dataset.pilot_arch='resnet10'
 # python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.2 dataset.pilot_arch='resnet10'
 # python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.3 dataset.pilot_arch='resnet10'
 # python main_lt.py with save=True wd=5e-4 arch='resnet18' dataset.perc=0.4 dataset.pilot_arch='resnet10'
