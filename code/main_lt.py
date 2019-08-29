@@ -6,6 +6,8 @@ import time
 import warnings
 import sys
 from tqdm import tqdm
+import pandas as pd
+from sklearn.metrics import accuracy_score
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -24,6 +26,7 @@ from hook import *
 import pickle as pkl
 import cifar_models
 import imagenet_models
+import celeba_models
 from utils_lt import shot_acc
 from IPython import embed
 
@@ -311,7 +314,10 @@ def runner(input, target, model, criterion, optimizer, idx):
 def train(train_loader, model, criterion, optimizer, epoch, opt):
     data_time = TimeMeter(unit=1)
     ctx.losses = AverageValueMeter()
-    ctx.errors = ClassErrorMeter(topk=[1,5])
+    if opt['dataset'] == 'celeba':
+        ctx.errors = ClassErrorMeter(topk=[1])
+    else:
+        ctx.errors = ClassErrorMeter(topk=[1,5])
     n_iters = int(len(train_loader) * opt['wufreq'])
 
     # switch to train mode
@@ -346,7 +352,10 @@ def train(train_loader, model, criterion, optimizer, epoch, opt):
 @epoch_hook(ctx, mode='val')
 def validate(val_loader, train_dataset, model, criterion, opt):
     losses = AverageValueMeter()
-    errors = ClassErrorMeter(topk=[1,5])
+    if ctx.opt['dataset'] == 'celeba':
+        errors = ClassErrorMeter(topk=[1])
+    else:
+        errors = ClassErrorMeter(topk=[1,5])
     # switch to evaluate mode
     model.eval()
     preds = []
@@ -389,6 +398,20 @@ def validate(val_loader, train_dataset, model, criterion, opt):
         stats['many_acc_top1'] = many_acc_top1
         stats['median_acc_top1'] = median_acc_top1
         stats['low_acc_top1'] = low_acc_top1
+
+    if ctx.opt['dataset'] == 'celeba':
+        preds_a = preds[ctx.indices_a].cpu()
+        preds_b = preds[ctx.indices_b].cpu()
+        targets_a = targets[ctx.indices_a].cpu()
+        targets_b = targets[ctx.indices_b].cpu()
+        acc_a = accuracy_score(targets_a, preds_a)
+        acc_b = accuracy_score(targets_b, preds_b)
+        stats['acc_a'] = acc_a
+        stats['acc_b'] = acc_b
+        print(' * Acc@1_a {acc:.3f}'
+              .format(acc=acc_a * 100.))
+        print(' * Acc@1_b {acc:.3f}'
+              .format(acc=acc_b * 100.))
     
     ctx.metrics = stats
     return stats
@@ -465,6 +488,9 @@ def main_worker(opt):
         elif 'imagenet' in opt['dataset'] and not '32' in opt['dataset'] and opt['arch'] in ['resnet10', 'resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152']:
             print("=> creating model '{}'".format(opt['arch']))
             model = getattr(imagenet_models, opt['arch'])(num_classes=1000, use_att=opt['modatt'])
+        elif opt['dataset'] == 'celeba' and opt['arch'] in ['resnet10', 'resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152']:
+            print("=> creating model '{}'".format(opt['arch']))
+            model = getattr(celeba_models, opt['arch'])(num_classes=2)
         else:
             print("=> creating model '{}'".format(opt['arch']))
             model = models.__dict__[opt['arch']](opt)
@@ -511,6 +537,13 @@ def main_worker(opt):
     train_loader, val_loader, weights_loader, train_length = load_data(opt=opt)
     ctx.train_loader = train_loader
     #ctx.counter = 1
+
+    if opt['dataset'] == 'celeba':
+        df = pd.read_csv('/home/aquarium/celebA/celeba_test_all_attributes.csv')
+        indices_a = df[df['Male'] == 1].index.tolist()
+        indices_b = df[df['Male'] == 0].index.tolist()
+        ctx.indices_a = indices_a
+        ctx.indices_b = indices_b
 
     complete_outputs = torch.ones(train_length).cuda(opt['g'])
     

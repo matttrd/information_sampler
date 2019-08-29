@@ -13,7 +13,7 @@ from models import get_num_classes
 from PIL import Image
 import os
 import pickle as pkl 
-#import folder
+import pandas as pd 
 
 data_ingredient = Ingredient('dataset')
 
@@ -28,7 +28,7 @@ def cfg():
     mode = 0 #remove: most difficult (0) | easy samples (1) random (2)
     pilot_samp = 'default' # sampler used to train the pilot net: default | invtunnel | tunnel | ufoym 
     pilot_arch = 'allcnn' # architecture used for the pilot net
-    pilot_ep = 1 # epochs in the training of the pilot net
+    celeba_class_attr = 'Smiling' # attribute used for binary classification in celebA
 
 class MyDataset(Dataset):
     def __init__(self, data, source, train, download, transform):
@@ -79,6 +79,30 @@ class LT_Dataset(Dataset):
 
         return data, target, index
 
+class CelebaDataset(Dataset):
+    """Custom Dataset for loading CelebA face images"""
+
+    def __init__(self, csv_path, img_dir, attr, transform=None):
+        df = pd.read_csv(csv_path, index_col=0)
+        self.img_dir = img_dir
+        self.csv_path = csv_path
+        self.img_names = df.index.values
+        self.y = df[attr].values
+        self.transform = transform
+
+    def __len__(self):
+        return self.y.shape[0]
+
+    def __getitem__(self, index):
+        img = Image.open(os.path.join(self.img_dir,
+                                      self.img_names[index]))
+        
+        if self.transform is not None:
+            data = self.transform(img)
+        
+        target = self.y[index]
+
+        return data, target, index
 
 class Lighting(object):
     # Lighting noise (AlexNet - style PCA - based noise)
@@ -132,7 +156,7 @@ TEST_TRANSFORMS_224 = transforms.Compose([
     ])
 
 @data_ingredient.capture
-def load_data(name, source, shuffle, frac, perc, mode, pilot_samp, pilot_arch, pilot_ep, norm, opt):
+def load_data(name, source, shuffle, frac, perc, mode, pilot_samp, pilot_arch, celeba_class_attr, norm, opt):
 
     if name == 'cifar10':
     	# CIFAR_MEAN = ch.tensor([0.4914, 0.4822, 0.4465])
@@ -212,7 +236,20 @@ def load_data(name, source, shuffle, frac, perc, mode, pilot_samp, pilot_arch, p
             transforms.ToTensor(),
             transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
         ])
-    
+    elif name == 'celeba':
+        transform_train = transforms.Compose([
+            transforms.CenterCrop(178),
+            transforms.Resize((128, 128)),
+            transforms.RandomHorizontalFlip(),
+            transforms.ColorJitter(.1,.1,.1),
+            transforms.RandomRotation(2),
+            transforms.ToTensor(),
+        ])
+        transform_test = transforms.Compose([
+            transforms.CenterCrop(178),
+            transforms.Resize((128, 128)),
+            transforms.ToTensor(),
+        ])
     elif name == 'imagenet':
     	transform_train = TRAIN_TRANSFORMS_224
     	transform_test  = TEST_TRANSFORMS_224
@@ -242,7 +279,15 @@ def load_data(name, source, shuffle, frac, perc, mode, pilot_samp, pilot_arch, p
                         transform=transform_train)    
         test_dataset = MyDataset(name, source, train=False, download=True,
                         transform=transform_test)
-
+    elif name == 'celeba':
+        train_dataset = CelebaDataset(csv_path='/home/aquarium/celebA/celeba_train_all_attributes.csv',
+            img_dir='/home/aquarium/celebA/img_align_celeba/',
+            attr = celeba_class_attr,
+            transform=transform_train)
+        test_dataset = CelebaDataset(csv_path='/home/aquarium/celebA/celeba_test_all_attributes.csv',
+            img_dir='/home/aquarium/celebA/img_align_celeba/',
+            attr = celeba_class_attr,
+            transform=transform_test)
     else:
         raise NotImplementedError
 
