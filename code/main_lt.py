@@ -7,7 +7,7 @@ import warnings
 import sys
 from tqdm import tqdm
 import pandas as pd
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, confusion_matrix, f1_score
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -404,14 +404,38 @@ def validate(val_loader, train_dataset, model, criterion, opt):
         preds_b = preds[ctx.indices_b].cpu()
         targets_a = targets[ctx.indices_a].cpu()
         targets_b = targets[ctx.indices_b].cpu()
+
         acc_a = accuracy_score(targets_a, preds_a)
+        cm_a = confusion_matrix(targets_a, preds_a)
+        cm_a = cm_a.astype('float') / cm_a.sum(axis=1)[:, np.newaxis]
+        tn_a, fp_a, fn_a, tp_a = cm_a.ravel()
+        f1_a = f1_score(targets_a, preds_a)
+
         acc_b = accuracy_score(targets_b, preds_b)
+        cm_b = confusion_matrix(targets_b, preds_b)
+        cm_b = cm_b.astype('float') / cm_b.sum(axis=1)[:, np.newaxis]
+        tn_b, fp_b, fn_b, tp_b = cm_b.ravel()
+        f1_b = f1_score(targets_b, preds_b)
+
         stats['acc_a'] = acc_a
+        stats['fp_a'] = fp_a
+        stats['fn_a'] = fn_a
+        stats['f1_a'] = f1_a
         stats['acc_b'] = acc_b
-        print(' * Acc@1_a {acc:.3f}'
-              .format(acc=acc_a * 100.))
-        print(' * Acc@1_b {acc:.3f}'
-              .format(acc=acc_b * 100.))
+        stats['fp_b'] = fp_b
+        stats['fn_b'] = fn_b
+        stats['f1_b'] = f1_b
+
+        print('a) Acc@1 {acc:.3f}\t'
+              'FP rate {fp:.3f}\t'
+              'FN rate {fn:.3f}\t'
+              'F1 score {f1:.3f}\t'.format(
+              acc=acc_a * 100., fp=fp_a, fn=fn_a, f1=f1_a))
+        print('b) Acc@1 {acc:.3f}\t' 
+              'FP rate {fp:.3f}\t'
+              'FN rate {fn:.3f}\t'
+              'F1 score {f1:.3f}\t'.format(
+              acc=acc_b*100., fp=fp_b, fn=fn_b, f1=f1_b))
     
     ctx.metrics = stats
     return stats
