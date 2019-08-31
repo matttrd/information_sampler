@@ -586,7 +586,7 @@ def main_worker(opt):
         validate(val_loader, train_loader, model, criterion, opt)
         return
 
-    if ctx.opt['sampler'] is not 'default' and ctx.opt['smart_init_sampler']:
+    if ctx.opt['sampler'] != 'default' and ctx.opt['smart_init_sampler']:
         model.eval()
         for i, (x,y,idx) in enumerate(train_loader):
             x = x.cuda()
