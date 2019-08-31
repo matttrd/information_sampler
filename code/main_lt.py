@@ -115,6 +115,7 @@ def cfg():
     exp = 'MD' # experiment ID
     save_w_dyn = False
     bce = False #binary xce
+    smart_init_sampler = False 
 best_top1 = 0
 
 # for some reason, the db must me created in the global scope
@@ -585,9 +586,15 @@ def main_worker(opt):
         validate(val_loader, train_loader, model, criterion, opt)
         return
 
-   
-
-
+    if ctx.opt['sampler'] is not 'default' and ctx.opt['smart_init_sampler']:
+        model.eval()
+        for i, (x,y,idx) in enumerate(train_loader):
+            x = x.cuda()
+            y = y.cuda()
+            out, _ = model(x)
+            S_prob = compute_weights(out, y, idx, criterion)
+            train_loader.sampler.weights = S_prob
+        model.train()
 
     for epoch in range(opt['start_epoch'], opt['epochs']):
         ctx.epoch = epoch
