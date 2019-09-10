@@ -29,6 +29,7 @@ import imagenet_models
 import celeba_models
 from utils_lt import shot_acc
 from IPython import embed
+from libKMCUDA import kmeans_cuda
 
 # local thread used as a global context
 ctx = threading.local()
@@ -116,6 +117,8 @@ def cfg():
     save_w_dyn = False
     bce = False #binary xce
     smart_init_sampler = False 
+    clustering = False
+    num_clusters = 5000
 best_top1 = 0
 
 # for some reason, the db must me created in the global scope
@@ -141,6 +144,8 @@ def init(name):
     ctx.metrics['best_top1'] = best_top1
     ctx.hooks = None
     ctx.toweights = {'indices': [], 'values': []}
+    if ctx.opt['clustering']:
+        ctx.opt['save_w_dyn'] = True
     ctx.init = 0
     ctx.counter = 0
     # if ctx.opt['sampler'] == 'our':
@@ -248,7 +253,7 @@ def compute_weights_stats(model, criterion, loader, save_stats):
             inp_w_dir = os.path.join(opt.get('o'), opt['exp'], opt['filename']) +'/input_weights/'
             ctx.inp_w_dir = inp_w_dir
             os.makedirs(inp_w_dir)
-            os.makedirs(os.path.join(inp_w_dir, 'tmp'))
+            #os.makedirs(os.path.join(inp_w_dir, 'tmp'))
         # initialize sample mean of the weights
         ctx.sample_mean = torch.zeros([1, len(loader.dataset)]).cuda(opt['g'])     
         ctx.sample_mean = torch.zeros_like(ctx.sample_mean)
@@ -265,8 +270,8 @@ def compute_weights_stats(model, criterion, loader, save_stats):
     ctx.cum_sum += torch.abs(weights)
 
     if save_stats:
-        with open(os.path.join(ctx.inp_w_dir, 'tmp', 'weights_differences_' + str(ctx.counter) + '.pkl'), 'wb') as handle:
-            pkl.dump(difference.cpu().numpy(), handle, protocol=pkl.HIGHEST_PROTOCOL)
+        with open(os.path.join(ctx.inp_w_dir, 'weights_' + str(ctx.counter) + '.pkl'), 'wb') as handle:
+            pkl.dump(weights.cpu().numpy(), handle, protocol=pkl.HIGHEST_PROTOCOL)
             
     ctx.old_weights = weights
 
@@ -676,12 +681,20 @@ def main():
             pkl.dump(ctx.histograms, handle, protocol=pkl.HIGHEST_PROTOCOL)
         with open(os.path.join(ctx.inp_w_dir, 'weights_means.pkl'), 'wb') as handle:
             pkl.dump(ctx.sample_mean.cpu().numpy(), handle, protocol=pkl.HIGHEST_PROTOCOL)
-        # concatenate weights differences
-        weights_diff = []
+        # concatenate weights vectors
+        weights_all_epochs = []
         for i in range(1, ctx.counter + 1):
-            name = 'weights_differences_' + str(i) + '.pkl'
-            weights_diff.append(np.load(os.path.join(ctx.inp_w_dir, 'tmp', name), allow_pickle=True))
-        weights_diff = np.vstack(weights_diff)
-        with open(os.path.join(ctx.inp_w_dir, 'weights_differences.pkl'), 'wb') as handle:
-            pkl.dump(weights_diff, handle, protocol=pkl.HIGHEST_PROTOCOL)
-        shutil.rmtree(os.path.join(ctx.inp_w_dir, 'tmp'))
+            name = 'weights_' + str(i) + '.pkl'
+            weights_all_epochs.append(np.load(os.path.join(ctx.inp_w_dir, name), allow_pickle=True))
+        weights_all_epochs = np.vstack(weights_all_epochs)
+        weights_all_epochs = np.transpose(weights_all_epochs)
+        with open(os.path.join(ctx.inp_w_dir, 'weights_all_epochs.pkl'), 'wb') as handle:
+            pkl.dump(weights_all_epochs, handle, protocol=pkl.HIGHEST_PROTOCOL)
+        #shutil.rmtree(os.path.join(ctx.inp_w_dir, 'tmp'))
+
+    if ctx.opt['clustering']:
+        weights_all_epochs = np.load(os.path.join(ctx.inp_w_dir, 'weights_all_epochs.pkl'), allow_pickle=True)
+        centroids, assignments, avg_distance = kmeans_cuda(weights_all_epochs, ctx.opt['num_clusters'], verbosity=1, seed=ctx.opt['seed'], average_distance=True)
+        clustering_data = {'centroids': centroids, 'assignments': assignments, 'avg_distance': avg_distance}
+        with open(os.path.join(ctx.inp_w_dir, 'clustering.pkl'), 'wb') as handle:
+            pkl.dump(clustering_data, handle, protocol=pkl.HIGHEST_PROTOCOL)
