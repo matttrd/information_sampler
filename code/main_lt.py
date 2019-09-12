@@ -682,7 +682,7 @@ def main():
             #weights_all_epochs = np.load(os.path.join(ctx.inp_w_dir, 'weights_all_epochs.pkl'), allow_pickle=True)
             centroids, assignments = kmeans_cuda(weights_all_epochs, ctx.opt['num_clusters'], verbosity=1, seed=ctx.opt['seed'])
             pilot = {'centroids': centroids, 'assignments': assignments, 'weights_all_epochs': weights_all_epochs, 'pilot_directory': ctx.opt['filename']}
-            pilot_fn = 'pilot_' + ctx.opt['dataset'] + '_' + ctx.opt['arch'] + '_' + ctx.opt['sampler'] + '_' + str(num_clusters) + '_clusters'
+            pilot_fn = 'pilot_' + ctx.opt['dataset'] + '_' + ctx.opt['arch'] + '_' + ctx.opt['sampler'] + '_' + str(ctx.opt['num_clusters']) + '_clusters'
         else:
             # we need the array of sorted indexes in the form [easy --> hard]
             if ctx.opt['sampler'] == 'tunnel':
