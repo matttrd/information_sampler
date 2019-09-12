@@ -144,8 +144,6 @@ def init(name):
     ctx.metrics['best_top1'] = best_top1
     ctx.hooks = None
     ctx.toweights = {'indices': [], 'values': []}
-    if ctx.opt['clustering']:
-        ctx.opt['save_w_dyn'] = True
     ctx.init = 0
     ctx.counter = 0
     # if ctx.opt['sampler'] == 'our':
@@ -250,7 +248,10 @@ def compute_weights_stats(model, criterion, loader, save_stats):
     
     if ctx.counter == 0:
         if save_stats:
-            inp_w_dir = os.path.join(opt.get('o'), opt['exp'], opt['filename']) +'/input_weights/'
+            if opt['pilot']:
+                inp_w_dir = os.path.join(opt.get('o'), 'pilots', opt['filename']) +'/input_weights/'
+            else:
+                inp_w_dir = os.path.join(opt.get('o'), opt['exp'], opt['filename']) +'/input_weights/'
             ctx.inp_w_dir = inp_w_dir
             os.makedirs(inp_w_dir)
             #os.makedirs(os.path.join(inp_w_dir, 'tmp'))
@@ -620,7 +621,7 @@ def main_worker(opt):
         metrics = validate(val_loader, train_loader, model, criterion, opt)
         
         # update stats of the weights
-        if opt['save_w_dyn']:
+        if opt['save_w_dyn'] or opt['clustering']:
             _ = compute_weights_stats(model, criterion, weights_loader, save_stats=True)
         else:
             if opt['pilot']:
@@ -658,23 +659,7 @@ def main():
         #               'from checkpoints.')
     main_worker(ctx.opt)
 
-    # we need the array of sorted indexes in the form [easy --> hard]
-    if ctx.opt['pilot']:
-        if ctx.opt['sampler'] == 'tunnel':
-            # weights = p
-            sorted_w, sorted_idx = torch.sort(ctx.sample_mean, descending=True) 
-        else:
-            # weights = 1-p
-            sorted_w, sorted_idx = torch.sort(ctx.sample_mean, descending=False) 
-        pilot = {'sorted_idx': sorted_idx.cpu().numpy(), 'sorted_w': sorted_w.cpu().numpy(), 
-                 'pilot_directory': ctx.opt['filename'], 'pilot_saved': ctx.opt['save']}
-        pilot_fn = 'pilot_' + ctx.opt['dataset'] + '_' + ctx.opt['arch'] + '_' + ctx.opt['sampler']
-        
-        with open(os.path.join(ctx.opt['o'], 'pilots', pilot_fn + '.pkl'), 'wb') as handle:
-            pkl.dump(pilot, handle, protocol=pkl.HIGHEST_PROTOCOL)
-
-            
-    if not ctx.opt['evaluate'] and ctx.opt['save_w_dyn']:
+    if not ctx.opt['evaluate'] and (ctx.opt['save_w_dyn'] or ctx.opt['clustering']):
         with open(os.path.join(ctx.inp_w_dir, 'toweights.pkl'), 'wb') as handle:
             pkl.dump(ctx.toweights, handle, protocol=pkl.HIGHEST_PROTOCOL)
         with open(os.path.join(ctx.inp_w_dir, 'histograms.pkl'), 'wb') as handle:
@@ -692,9 +677,22 @@ def main():
             pkl.dump(weights_all_epochs, handle, protocol=pkl.HIGHEST_PROTOCOL)
         #shutil.rmtree(os.path.join(ctx.inp_w_dir, 'tmp'))
 
-    if ctx.opt['clustering']:
-        weights_all_epochs = np.load(os.path.join(ctx.inp_w_dir, 'weights_all_epochs.pkl'), allow_pickle=True)
-        centroids, assignments, avg_distance = kmeans_cuda(weights_all_epochs, ctx.opt['num_clusters'], verbosity=1, seed=ctx.opt['seed'], average_distance=True)
-        clustering_data = {'centroids': centroids, 'assignments': assignments, 'avg_distance': avg_distance}
-        with open(os.path.join(ctx.inp_w_dir, 'clustering.pkl'), 'wb') as handle:
-            pkl.dump(clustering_data, handle, protocol=pkl.HIGHEST_PROTOCOL)
+    if ctx.opt['pilot']:
+        if ctx.opt['clustering']:
+            #weights_all_epochs = np.load(os.path.join(ctx.inp_w_dir, 'weights_all_epochs.pkl'), allow_pickle=True)
+            centroids, assignments = kmeans_cuda(weights_all_epochs, ctx.opt['num_clusters'], verbosity=1, seed=ctx.opt['seed'])
+            pilot = {'centroids': centroids, 'assignments': assignments, 'weights_all_epochs': weights_all_epochs, 'pilot_directory': ctx.opt['filename']}
+            pilot_fn = 'pilot_' + ctx.opt['dataset'] + '_' + ctx.opt['arch'] + '_' + ctx.opt['sampler'] + '_' + str(num_clusters) + '_clusters'
+        else:
+            # we need the array of sorted indexes in the form [easy --> hard]
+            if ctx.opt['sampler'] == 'tunnel':
+                # weights = p
+                sorted_w, sorted_idx = torch.sort(ctx.sample_mean, descending=True) 
+            else:
+                # weights = 1-p
+                sorted_w, sorted_idx = torch.sort(ctx.sample_mean, descending=False) 
+            pilot = {'sorted_idx': sorted_idx.cpu().numpy(), 'sorted_w': sorted_w.cpu().numpy(), 
+                     'pilot_directory': ctx.opt['filename'], 'pilot_saved': ctx.opt['save']}
+            pilot_fn = 'pilot_' + ctx.opt['dataset'] + '_' + ctx.opt['arch'] + '_' + ctx.opt['sampler']
+        with open(os.path.join(ctx.opt['o'], 'pilots', pilot_fn + '.pkl'), 'wb') as handle:
+            pkl.dump(pilot, handle, protocol=pkl.HIGHEST_PROTOCOL)
