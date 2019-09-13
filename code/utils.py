@@ -70,9 +70,10 @@ def get_clustering_indices_to_remove(weights_all_epochs, centroids, assignments,
         if mode == 3:
             idx += list(df_cluster.nlargest(num_samples_to_drop, ['dist']).index.values)
         if mode == 4:
-            idx +=  list(df_cluster.nsmallest(num_samples_to_drop, ['dist']).index.values)
+            idx += list(df_cluster.nsmallest(num_samples_to_drop, ['dist']).index.values)
         elif mode == 5:
-            idx +=  list(df_cluster.sample(num_samples_to_drop, random_state=seed).index.values)
+            idx += list(df_cluster.sample(num_samples_to_drop, random_state=seed).index.values)
+    df.drop(idx, inplace=True)
     # second pass through clusters: priority to clusters which deserved a "round up"
     for cluster in range(df['cluster'].nunique()):
         df_cluster = df[df['cluster']==cluster]
@@ -80,10 +81,13 @@ def get_clustering_indices_to_remove(weights_all_epochs, centroids, assignments,
             continue
         if mode == 3:
             idx += list(df_cluster.nlargest(1, ['dist']).index.values)
+            df.drop(list(df_cluster.nlargest(1, ['dist']).index.values), inplace=True)
         if mode == 4:
-            idx +=  list(df_cluster.nsmallest(1, ['dist']).index.values)
+            idx += list(df_cluster.nsmallest(1, ['dist']).index.values)
+            df.drop(list(df_cluster.nsmallest(1, ['dist']).index.values), inplace=True)
         elif mode == 5:
-            idx +=  list(df_cluster.sample(1, random_state=seed).index.values)
+            idx += list(df_cluster.sample(1, random_state=seed).index.values)
+            df.drop(list(df_cluster.sample(1, random_state=seed).index.values), inplace=True)
         if perc*len(df) - len(idx) == 0:
             break
     # additional passes through clusters 
@@ -94,10 +98,13 @@ def get_clustering_indices_to_remove(weights_all_epochs, centroids, assignments,
                 continue
             if mode == 3:
                 idx += list(df_cluster.nlargest(1, ['dist']).index.values)
+                df.drop(list(df_cluster.nlargest(1, ['dist']).index.values), inplace=True)
             if mode == 4:
-                idx +=  list(df_cluster.nsmallest(1, ['dist']).index.values)
+                idx += list(df_cluster.nsmallest(1, ['dist']).index.values)
+                df.drop(list(df_cluster.nsmallest(1, ['dist']).index.values), inplace=True)
             elif mode == 5:
-                idx +=  list(df_cluster.sample(1, random_state=42).index.values)
+                idx += list(df_cluster.sample(1, random_state=seed).index.values)
+                df.drop(list(df_cluster.sample(1, random_state=seed).index.values), inplace=True)
             if perc*len(df) - len(idx) == 0:
                 break
     return idx
