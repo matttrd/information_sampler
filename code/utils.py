@@ -54,16 +54,18 @@ def get_clustering_indices_to_remove(weights_all_epochs, centroids, assignments,
     for index, row in df.iterrows():
         distances.append(euclidean(row.weights, centroids[row.cluster]))
     df['dist'] = distances
+    dataset_length = len(df)
     idx = []
     # first pass through clusters
     second_pass = []
     for cluster in range(df['cluster'].nunique()):
         df_cluster = df[df['cluster']==cluster]
         if len(df_cluster) < 2:
+            second_pass.append(False)
             continue
-        cl_popul_rate = len(df_cluster)/len(df)
-        num_samples_to_drop = int(perc*len(df)*cl_popul_rate)
-        if (perc*len(df)*cl_popul_rate - num_samples_to_drop > 0.5):
+        cl_popul_rate = len(df_cluster)/dataset_length
+        num_samples_to_drop = int(perc*dataset_length*cl_popul_rate)
+        if (perc*dataset_length*cl_popul_rate - num_samples_to_drop > 0.5):
             second_pass.append(True)
         else:
             second_pass.append(False)
@@ -88,10 +90,10 @@ def get_clustering_indices_to_remove(weights_all_epochs, centroids, assignments,
         elif mode == 5:
             idx += list(df_cluster.sample(1, random_state=seed).index.values)
             df.drop(list(df_cluster.sample(1, random_state=seed).index.values), inplace=True)
-        if perc*len(df) - len(idx) == 0:
+        if perc*dataset_length - len(idx) == 0:
             break
     # additional passes through clusters 
-    while perc*len(df) - len(idx) > 0:
+    while perc*dataset_length - len(idx) > 0:
         for cluster in range(df['cluster'].nunique()):
             df_cluster = df[df['cluster']==cluster]
             if len(df_cluster) < 2:
@@ -105,6 +107,6 @@ def get_clustering_indices_to_remove(weights_all_epochs, centroids, assignments,
             elif mode == 5:
                 idx += list(df_cluster.sample(1, random_state=seed).index.values)
                 df.drop(list(df_cluster.sample(1, random_state=seed).index.values), inplace=True)
-            if perc*len(df) - len(idx) == 0:
+            if perc*dataset_length - len(idx) == 0:
                 break
     return idx
