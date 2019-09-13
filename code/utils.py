@@ -1,7 +1,8 @@
 import torch
 import torch.utils.data
 import torchvision
-
+from scipy.spatial.distance import euclidean 
+import pandas as pd 
 
 def get_label(self, dataset, idx):
     dataset_type = type(dataset)
@@ -42,4 +43,61 @@ def get_imbalance_weights(dataset,indices=None, num_samples=None):
     weights = [1.0 / label_to_count[get_label(dataset, idx)]
                for idx in self.indices]
     self.weights = torch.DoubleTensor(weights)
-                
+
+def get_clustering_indices_to_remove(weights_all_epochs, centroids, assignments, perc, mode):
+    # create dataframe
+    weights_all_epochs = weights_all_epochs.tolist()
+    df = pd.DataFrame()
+    df['weights'] = weights_all_epochs
+    df['cluster'] = assignments
+    distances = []
+    for index, row in df.iterrows():
+        distances.append(euclidean(row.weights, centroids[row.cluster]))
+    df['dist'] = distances
+    idx = []
+    # first pass through clusters
+    second_pass = []
+    for cluster in range(df['cluster'].nunique()):
+        df_cluster = df[df['cluster']==cluster]
+        if len(df_cluster) < 2:
+            continue
+        cl_popul_rate = len(df_cluster)/len(df)
+        num_samples_to_drop = int(perc*len(df)*cl_popul_rate)
+        if (perc*len(df)*cl_popul_rate - num_samples_to_drop > 0.5):
+            second_pass.append(True)
+        else:
+            second_pass.append(False)
+        if mode == 3:
+            idx += list(df_cluster.nlargest(num_samples_to_drop, ['dist']).index.values)
+        if mode == 4:
+            idx +=  list(df_cluster.nsmallest(num_samples_to_drop, ['dist']).index.values)
+        elif mode == 5:
+            idx +=  list(df_cluster.sample(num_samples_to_drop, random_state=42).index.values)
+    # second pass through clusters: priority to clusters which deserved a "round up"
+    for cluster in range(df['cluster'].nunique()):
+        df_cluster = df[df['cluster']==cluster]
+        if len(df_cluster) < 2 or (second_pass[cluster]==False):
+            continue
+        if mode == 3:
+            idx += list(df_cluster.nlargest(1, ['dist']).index.values)
+        if mode == 4:
+            idx +=  list(df_cluster.nsmallest(1, ['dist']).index.values)
+        elif mode == 5:
+            idx +=  list(df_cluster.sample(1, random_state=42).index.values)
+        if perc*len(df) - len(idx) == 0:
+            break
+    # additional passes through clusters 
+    while perc*len(df) - len(idx) > 0:
+        for cluster in range(df['cluster'].nunique()):
+            df_cluster = df[df['cluster']==cluster]
+            if len(df_cluster) < 2:
+                continue
+            if mode == 3:
+                idx += list(df_cluster.nlargest(1, ['dist']).index.values)
+            if mode == 4:
+                idx +=  list(df_cluster.nsmallest(1, ['dist']).index.values)
+            elif mode == 5:
+                idx +=  list(df_cluster.sample(1, random_state=42).index.values)
+            if perc*len(df) - len(idx) == 0:
+                break
+    return idx

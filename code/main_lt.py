@@ -29,7 +29,6 @@ import imagenet_models
 import celeba_models
 from utils_lt import shot_acc
 from IPython import embed
-from libKMCUDA import kmeans_cuda
 
 # local thread used as a global context
 ctx = threading.local()
@@ -118,7 +117,6 @@ def cfg():
     bce = False #binary xce
     smart_init_sampler = False 
     clustering = False
-    num_clusters = 5000
 best_top1 = 0
 
 # for some reason, the db must me created in the global scope
@@ -679,10 +677,8 @@ def main():
 
     if ctx.opt['pilot']:
         if ctx.opt['clustering']:
-            #weights_all_epochs = np.load(os.path.join(ctx.inp_w_dir, 'weights_all_epochs.pkl'), allow_pickle=True)
-            centroids, assignments = kmeans_cuda(weights_all_epochs, ctx.opt['num_clusters'], verbosity=1, seed=ctx.opt['seed'])
-            pilot = {'centroids': centroids, 'assignments': assignments, 'weights_all_epochs': weights_all_epochs, 'pilot_directory': ctx.opt['filename']}
-            pilot_fn = 'pilot_' + ctx.opt['dataset'] + '_' + ctx.opt['arch'] + '_' + ctx.opt['sampler'] + '_' + str(ctx.opt['num_clusters']) + '_clusters'
+            pilot = {'weights_all_epochs': weights_all_epochs, 'pilot_directory': ctx.opt['filename']}
+            pilot_fn = 'clustering_pilot_' + ctx.opt['dataset'] + '_' + ctx.opt['arch'] + '_' + ctx.opt['sampler']
         else:
             # we need the array of sorted indexes in the form [easy --> hard]
             if ctx.opt['sampler'] == 'tunnel':
