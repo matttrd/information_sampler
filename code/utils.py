@@ -44,7 +44,7 @@ def get_imbalance_weights(dataset,indices=None, num_samples=None):
                for idx in self.indices]
     self.weights = torch.DoubleTensor(weights)
 
-def get_clustering_indices_to_remove(weights_all_epochs, centroids, assignments, perc, mode):
+def get_clustering_indices_to_remove(weights_all_epochs, centroids, assignments, perc, mode, seed):
     # create dataframe
     weights_all_epochs = weights_all_epochs.tolist()
     df = pd.DataFrame()
@@ -72,7 +72,7 @@ def get_clustering_indices_to_remove(weights_all_epochs, centroids, assignments,
         if mode == 4:
             idx +=  list(df_cluster.nsmallest(num_samples_to_drop, ['dist']).index.values)
         elif mode == 5:
-            idx +=  list(df_cluster.sample(num_samples_to_drop, random_state=42).index.values)
+            idx +=  list(df_cluster.sample(num_samples_to_drop, random_state=seed).index.values)
     # second pass through clusters: priority to clusters which deserved a "round up"
     for cluster in range(df['cluster'].nunique()):
         df_cluster = df[df['cluster']==cluster]
@@ -83,7 +83,7 @@ def get_clustering_indices_to_remove(weights_all_epochs, centroids, assignments,
         if mode == 4:
             idx +=  list(df_cluster.nsmallest(1, ['dist']).index.values)
         elif mode == 5:
-            idx +=  list(df_cluster.sample(1, random_state=42).index.values)
+            idx +=  list(df_cluster.sample(1, random_state=seed).index.values)
         if perc*len(df) - len(idx) == 0:
             break
     # additional passes through clusters 

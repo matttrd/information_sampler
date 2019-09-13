@@ -322,7 +322,7 @@ def load_data(name, source, shuffle, frac, perc, mode, pilot_samp, pilot_arch, n
                 pilot = pkl.load(f)
             weights_all_epochs = pilot['weights_all_epochs']
             centroids, assignments = kmeans_cuda(weights_all_epochs, num_clusters, verbosity=1, seed=opt['seed'])
-            idx = get_clustering_indices_to_remove(weights_all_epochs, centroids, assignments, perc, mode)
+            idx = get_clustering_indices_to_remove(weights_all_epochs, centroids, assignments, perc, mode, opt['seed'])
         else:
             raise(ValueError('Valid mode values: 0,1,2'))
         mask = np.ones(train_length, dtype=bool)
