@@ -110,3 +110,12 @@ def get_clustering_indices_to_remove(weights_all_epochs, centroids, assignments,
             if perc*dataset_length - len(idx) == 0:
                 break
     return idx
+
+    def compute_perc_diff(weights):
+        perc_diff = []
+        for i in range(weights.shape[1]-1):
+            d = (weights[:, i+1] - weights[:, i]) / (weights[:, i] + 1e-6)
+            perc_diff.append(d)
+        perc_diff = np.vstack(perc_diff)
+        perc_diff = np.transpose(perc_diff)
+        return perc_diff

@@ -32,6 +32,7 @@ def cfg():
     pilot_samp = 'default' # sampler used to train the pilot net: default | invtunnel | tunnel | ufoym 
     pilot_arch = 'allcnn' # architecture used for the pilot net
     num_clusters = 500 # number of clusters if mode = 3, 4, 5
+    use_perc_diff = False # clustering performed on perc differences of weights
     celeba_class_attr = 'Smiling' # attribute used for binary classification in celebA
 
 class MyDataset(Dataset):
@@ -160,7 +161,7 @@ TEST_TRANSFORMS_224 = transforms.Compose([
     ])
 
 @data_ingredient.capture
-def load_data(name, source, shuffle, frac, perc, mode, pilot_samp, pilot_arch, num_clusters, celeba_class_attr, norm, opt):
+def load_data(name, source, shuffle, frac, perc, mode, pilot_samp, pilot_arch, num_clusters, use_perc_diff, celeba_class_attr, norm, opt):
 
     if name == 'cifar10':
     	# CIFAR_MEAN = ch.tensor([0.4914, 0.4822, 0.4465])
@@ -321,8 +322,13 @@ def load_data(name, source, shuffle, frac, perc, mode, pilot_samp, pilot_arch, n
             with open(os.path.join(opt['o'], 'pilots', fn + '.pkl'), 'rb') as f:
                 pilot = pkl.load(f)
             weights_all_epochs = pilot['weights_all_epochs']
-            centroids, assignments = kmeans_cuda(weights_all_epochs, num_clusters, verbosity=0, seed=opt['seed'])
-            idx = get_clustering_indices_to_remove(weights_all_epochs, centroids, assignments, perc, mode, opt['seed'])
+            if use_perc_diff:
+                perc_diff = compute_perc_diff(weights_all_epochs)
+                centroids, assignments = kmeans_cuda(perc_diff, num_clusters, verbosity=0, seed=opt['seed'])
+                idx = get_clustering_indices_to_remove(perc_diff, centroids, assignments, perc, mode, opt['seed'])
+            else:
+                centroids, assignments = kmeans_cuda(weights_all_epochs, num_clusters, verbosity=0, seed=opt['seed'])
+                idx = get_clustering_indices_to_remove(weights_all_epochs, centroids, assignments, perc, mode, opt['seed'])
         else:
             raise(ValueError('Valid mode values: 0,1,2'))
         mask = np.ones(train_length, dtype=bool)
