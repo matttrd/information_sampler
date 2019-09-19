@@ -117,6 +117,7 @@ def cfg():
     bce = False #binary xce
     smart_init_sampler = False 
     clustering = False
+    mg_iter = 1
 best_top1 = 0
 
 # for some reason, the db must me created in the global scope
@@ -336,7 +337,8 @@ def train(train_loader, model, criterion, optimizer, epoch, opt):
         ctx.global_iters += 1
         input = input.cuda(opt['g'])
         target = target.cuda(opt['g'])
-        stats, S_prob = runner(input, target, model, criterion, optimizer, idx)
+        for mg_idx in range(opt['mg_iter']):
+            stats, S_prob = runner(input, target, model, criterion, optimizer, idx)
         if opt['sampler'] == 'invtunnel' or opt['sampler'] == 'tunnel':
             train_loader.sampler.weights = S_prob
 
