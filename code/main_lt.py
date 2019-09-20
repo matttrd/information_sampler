@@ -654,6 +654,7 @@ def main_worker(opt):
             if not os.path.isdir(hist_dir):
                 os.makedirs(hist_dir)
             plt.savefig(hist_dir + 'hist_{}.png'.format(epoch))
+            plt.close()
 
 
 @ctx.ex.automain
