@@ -29,6 +29,8 @@ import imagenet_models
 import celeba_models
 from utils_lt import shot_acc
 from IPython import embed
+import matplotlib.pyplot as plt 
+
 
 # local thread used as a global context
 ctx = threading.local()
@@ -118,6 +120,7 @@ def cfg():
     smart_init_sampler = False 
     clustering = False
     mg_iter = 1
+    save_hist_until_ep = 0
 best_top1 = 0
 
 # for some reason, the db must me created in the global scope
@@ -642,6 +645,15 @@ def main_worker(opt):
             'best_top1': best_top1,
             'optimizer' : optimizer.state_dict(),
         }, is_best)
+
+        if ctx.opt['save_hist_until_ep'] > 0 and epoch <= ctx.opt['save_hist_until_ep']:
+            plt.bar(np.arange(train_length), ctx.count.cpu().numpy(), color='b')
+            plt.ylabel('Count')
+            plt.title('Sampling frequency epoch {}'.format(epoch))
+            hist_dir = os.path.join(opt.get('o'), opt['exp'], opt['filename']) +'/hist/'
+            if not os.path.isdir(hist_dir):
+                os.makedirs(hist_dir)
+            plt.savefig(hist_dir + 'hist_{}.png'.format(epoch))
 
 
 @ctx.ex.automain
