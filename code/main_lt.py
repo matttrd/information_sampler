@@ -121,6 +121,8 @@ def cfg():
     clustering = False
     mg_iter = 1
     save_hist_until_ep = 0
+    ep_drop = -1
+    num_drop = 50
 best_top1 = 0
 
 # for some reason, the db must me created in the global scope
@@ -195,6 +197,10 @@ def compute_weights(outputs, targets, idx, criterion):
         S_prob = torch.exp(-complete_losses / temp)
     else:
         S_prob = 1 - torch.exp(-complete_losses / temp)
+
+    if ctx.epoch > ctx.opt['ep_drop'] and ctx.opt['ep_drop'] != -1:
+    	S_prob[ctx.largest] = 0
+
     return S_prob
 
 def compute_weights_stats(model, criterion, loader, save_stats):
@@ -342,8 +348,9 @@ def train(train_loader, model, criterion, optimizer, epoch, opt):
         target = target.cuda(opt['g'])
         for mg_idx in range(opt['mg_iter']):
             stats, S_prob = runner(input, target, model, criterion, optimizer, idx)
+            ctx.S_prob = S_prob
         if opt['sampler'] == 'invtunnel' or opt['sampler'] == 'tunnel':
-            train_loader.sampler.weights = S_prob
+            train_loader.sampler.weights = ctx.S_prob
 
         loss = stats['loss']
         top1 = stats['top1']
@@ -602,7 +609,8 @@ def main_worker(opt):
             y = y.cuda()
             out, _ = model(x)
             S_prob = compute_weights(out, y, idx, criterion)
-            train_loader.sampler.weights = S_prob
+            ctx.S_prob = S_prob
+            train_loader.sampler.weights = ctx.S_prob
         model.train()
 
     for epoch in range(opt['start_epoch'], opt['epochs']):
@@ -620,6 +628,11 @@ def main_worker(opt):
         
         # train for one epoch
         train(train_loader, model, criterion, optimizer, epoch, opt)
+        # filter out samples too hard to fit
+        if ctx.epoch == ctx.opt['ep_drop']:
+            srt_idx = list(np.argsort(ctx.count.cpu().numpy()))
+            ctx.largest = srt_idx[-ctx.opt['num_drop']:] 
+            ctx.S_prob[ctx.largest] = 0
         # evaluate on validation set
         metrics = validate(val_loader, train_loader, model, criterion, opt)
         
