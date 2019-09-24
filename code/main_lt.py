@@ -119,10 +119,10 @@ def cfg():
     bce = False #binary xce
     smart_init_sampler = False 
     clustering = False
-    mg_iter = 1
-    save_hist_until_ep = 0
-    ep_drop = -1
-    num_drop = 50
+    mg_iter = 1 # multi-grad steps (if equal to 1 -> standard training)
+    save_hist_until_ep = 0 # if > 0, save histograms until the specified epoch
+    ep_drop = -1 # if != -1, epoch in which hard samples are filtered out
+    num_drop = 50 # number of hard samples to filter out
 best_top1 = 0
 
 # for some reason, the db must me created in the global scope
