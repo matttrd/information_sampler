@@ -123,6 +123,7 @@ def cfg():
     save_hist_until_ep = 0 # if > 0, save histograms until the specified epoch
     ep_drop = -1 # if != -1, epoch in which hard samples are filtered out
     num_drop = 50 # number of hard samples to filter out
+    use_train_clean = False # use the clean_train_loader to validate on the training set
 best_top1 = 0
 
 # for some reason, the db must me created in the global scope
@@ -457,6 +458,59 @@ def validate(val_loader, train_dataset, model, criterion, opt):
     ctx.metrics = stats
     return stats
 
+@epoch_hook(ctx, mode='train_clean')
+def train_clean(val_loader, train_dataset, model, criterion, opt):
+    losses = AverageValueMeter()
+    if ctx.opt['dataset'] == 'celeba':
+        errors = ClassErrorMeter(topk=[1])
+    else:
+        errors = ClassErrorMeter(topk=[1,5])
+    # switch to evaluate mode
+    model.eval()
+    preds = []
+    targets = []
+
+    with torch.no_grad():
+        for i, (input, target, _) in tqdm(enumerate(val_loader)):
+            input = input.cuda(opt['g'])
+            target = target.cuda(opt['g'])
+
+            # compute output
+            output, _ = model(input)
+
+            if ctx.opt['bce']:
+                orig_target = target.clone()
+                new_target = logical_index(target, output.shape).float()
+            else:
+                new_target = target
+
+            loss = criterion(output, new_target).mean()
+            preds.append(output.max(dim=1)[1])
+            targets.append(target)
+
+            errors.add(output, target)
+            losses.add(loss.item())
+         
+            loss = losses.value()[0]
+            top1 = (100 - errors.value()[0]) / 100.
+
+        print(' * Acc@1 {top1:.3f}'
+              .format(top1=top1 * 100.))
+    
+    preds = torch.cat(preds)
+    targets = torch.cat(targets)
+    
+    stats = {'loss': loss, 'top1': top1}
+
+    if ctx.opt['dataset'] == 'imagenet_lt':
+        many_acc_top1, median_acc_top1, low_acc_top1 = shot_acc(preds, targets, train_dataset)
+        stats['many_acc_top1'] = many_acc_top1
+        stats['median_acc_top1'] = median_acc_top1
+        stats['low_acc_top1'] = low_acc_top1
+
+    ctx.metrics = stats
+    return stats
+
 
 def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
     if not ctx.opt['save']:
@@ -575,7 +629,7 @@ def main_worker(opt):
     cudnn.benchmark = True
 
     # Data loading code
-    train_loader, val_loader, weights_loader, train_length = load_data(opt=opt)
+    train_loader, clean_train_loader, val_loader, weights_loader, train_length = load_data(opt=opt)
     ctx.train_loader = train_loader
     #ctx.counter = 1
 
@@ -600,6 +654,8 @@ def main_worker(opt):
 
     if opt['evaluate']:
         validate(val_loader, train_loader, model, criterion, opt)
+        if opt['use_train_clean']:
+            train_clean(clean_train_loader, train_loader, model, criterion, opt)
         return
 
     if ctx.opt['sampler'] != 'default' and ctx.opt['smart_init_sampler']:
@@ -635,6 +691,9 @@ def main_worker(opt):
             ctx.S_prob[ctx.largest] = 0
         # evaluate on validation set
         metrics = validate(val_loader, train_loader, model, criterion, opt)
+        # evaluate on training set
+        if opt['use_train_clean']:
+            train_clean(clean_train_loader, train_loader, model, criterion, opt)
         
         # update stats of the weights
         if opt['save_w_dyn'] or opt['clustering']:

@@ -400,11 +400,13 @@ def load_data(name, source, shuffle, frac, perc, mode, pilot_samp, pilot_arch, n
     train_loader = torch.utils.data.DataLoader(
         train_dataset, batch_size=opt['b'], shuffle=False, num_workers=opt['j'], pin_memory=True, sampler=sampler)
 
-    test_loader = torch.utils.data.DataLoader(
-            test_dataset, 
-            batch_size=opt['b'], shuffle=False, num_workers=opt['j'], pin_memory=True)
+    clean_train_loader = torch.utils.data.DataLoader(
+        train_dataset, batch_size=opt['b'], shuffle=False, num_workers=opt['j'], pin_memory=True)
 
-    return train_loader, test_loader, weights_loader, train_length
+    test_loader = torch.utils.data.DataLoader(
+        test_dataset, batch_size=opt['b'], shuffle=False, num_workers=opt['j'], pin_memory=True)
+
+    return train_loader, clean_train_loader, test_loader, weights_loader, train_length
 
 def get_dataset_len(name):
     d = dict(cifar10=50000, cifar100=50000, tinyimagenet64=100000, imagenet_lt=115846, imagenet=1281167)
