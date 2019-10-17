@@ -103,7 +103,7 @@ def cfg():
     # marker
     marker = ''
     unbalanced = False
-    sampler = 'default' # (default | invtunnel | tunnel | ufoym )
+    sampler = ''
     # tunneling temperature
     temperature = 1.
     temperatures = ''
@@ -124,6 +124,9 @@ def cfg():
     ep_drop = -1 # if != -1, epoch in which hard samples are filtered out
     num_drop = 50 # number of hard samples to filter out
     use_train_clean = False # use the clean_train_loader to validate on the training set
+    alternate = False # alternate "tunnel"-"invtunnel"
+    num_tunnel = 1 # if alternate=True, number of epochs with "tunnel" sampler
+    num_invtunnel = 1 # if alternate=True, number of epochs with "invtunnel" sampler
 best_top1 = 0
 
 # for some reason, the db must me created in the global scope
@@ -151,56 +154,68 @@ def init(name):
     ctx.toweights = {'indices': [], 'values': []}
     ctx.init = 0
     ctx.counter = 0
-    # if ctx.opt['sampler'] == 'our':
-    #     ctx.weights_logger = create_basic_logger(ctx, 'statistics', idx=0)
+    ctx.counter_tunnel = ctx.opt['num_tunnel']
+    ctx.counter_invtunnel = 0
     register_hooks(ctx)
     
-
-
 def cum_abs_diff(cumsum, x_prev, x_new):
     return cumsum + torch.abs(x_prev - x_new)
 
-def compute_weights(outputs, targets, idx, criterion):
-    output = outputs.detach()
-    for i, index in enumerate(idx):
-        o = output[i].reshape(-1, output.shape[1])
-        if ctx.opt['bce']:
-            new_targets = logical_index(targets, output.shape).float()
-        else:
-            new_targets = targets
+def compute_weights(criterion, weights_loader, model, opt):
+    sampler = opt['sampler']
+    weights = []
+    with torch.no_grad():
+        for batch_idx, (data, target, idx) in enumerate(weights_loader):
+            data, target = data.cuda(opt['g']), target.cuda(opt['g'])
+            output, _ = model(data)
+            if ctx.opt['bce']:
+                new_target = logical_index(target, output.shape).float()
+            else:
+                new_target = target
+            loss = criterion(output, target)
+            if sampler == 'invtunnel':
+                w = 1 - torch.exp(-loss / ctx.opt['temperature'])
+            elif sampler == 'tunnel':
+                w = torch.exp(-loss / ctx.opt['temperature'])
+            else:
+                raise NotImplementedError    
+            weights.append(w)
+    S_prob = torch.cat(weights)
 
-        ctx.complete_outputs[index] = criterion(o, new_targets[i].unsqueeze(0)).mean()
-        ctx.count[index] += 1
-        if ctx.opt['adjust_classes']:
-            ctx.class_count[targets[i]] += 1
-            max_classes = ctx.class_count.max()
-            if max_classes > ctx.max_class_count:
-                ctx.max_class_count = max_classes
+    return S_prob
 
-        max_ = ctx.count[index].max()
-        
-        if max_ > ctx.max_count:
-            ctx.max_count = max_
 
-    complete_losses = ctx.complete_outputs
-    ncounts = ctx.count / ctx.max_count
-    if ctx.opt['dyncount']:
-        temp = ctx.opt['temperature'] * ncounts
-    else:
-        temp = ctx.opt['temperature']
+def compute_weights_alt(criterion, weights_loader, model, opt):
+    if ctx.counter_invtunnel != 0 and ctx.counter_tunnel == 0:
+        sampler = 'invtunnel'
+    elif ctx.counter_tunnel != 0 and ctx.counter_invtunnel == 0:
+        sampler = 'tunnel'
 
-    if ctx.opt['adjust_classes']:
-        for i, index in enumerate(idx):
-            ratio = 10 * ctx.class_count[targets[i]] / ctx.max_class_count
-            complete_losses[index] = complete_losses[index] / ratio
+    weights = []
+    with torch.no_grad():
+        for batch_idx, (data, target, idx) in enumerate(weights_loader):
+            data, target = data.cuda(opt['g']), target.cuda(opt['g'])
+            output, _ = model(data)
+            if ctx.opt['bce']:
+                new_target = logical_index(target, output.shape).float()
+            else:
+                new_target = target
+            loss = criterion(output, target)
+            if sampler == 'invtunnel':
+                w = 1 - torch.exp(-loss / ctx.opt['temperature'])
+            elif sampler == 'tunnel':
+                w = torch.exp(-loss / ctx.opt['temperature'])    
+            weights.append(w)
+    S_prob = torch.cat(weights)
 
-    if ctx.opt['sampler'] == 'tunnel':
-        S_prob = torch.exp(-complete_losses / temp)
-    else:
-        S_prob = 1 - torch.exp(-complete_losses / temp)
-
-    if ctx.epoch > ctx.opt['ep_drop'] and ctx.opt['ep_drop'] != -1:
-    	S_prob[ctx.largest] = 0
+    if sampler == 'invtunnel':
+        ctx.counter_invtunnel = ctx.counter_invtunnel - 1
+        if ctx.counter_invtunnel == 0:
+            ctx.counter_tunnel = ctx.opt['num_tunnel']
+    if sampler == 'tunnel':
+        ctx.counter_tunnel = ctx.counter_tunnel - 1
+        if ctx.counter_tunnel == 0:
+            ctx.counter_invtunnel = ctx.opt['num_invtunnel']
 
     return S_prob
 
@@ -290,7 +305,7 @@ def compute_weights_stats(model, criterion, loader, save_stats):
 
 
 @batch_hook(ctx, mode='train')
-def runner(input, target, model, criterion, optimizer, idx):
+def runner(input, target, model, criterion, optimizer, idx, weights_iter, weights_loader):
     # compute output
 
         output, _ = model(input)
@@ -321,13 +336,13 @@ def runner(input, target, model, criterion, optimizer, idx):
         ctx.metrics['avg'] = avg_stats
         
         model.eval()
-        S_prob = compute_weights(output, target, idx, criterion)
+        #S_prob = compute_weights(output, target, idx, criterion, weights_iter, weights_loader, model, ctx.opt)
         model.train()
         avg_stats['top1'] = (100 - avg_stats['top1']) / 100.
-        return avg_stats, S_prob
+        return avg_stats
 
 @epoch_hook(ctx, mode='train')
-def train(train_loader, model, criterion, optimizer, epoch, opt):
+def train(train_loader, model, criterion, optimizer, epoch, opt, weights_iter, weights_loader):
     data_time = TimeMeter(unit=1)
     ctx.losses = AverageValueMeter()
     if opt['dataset'] == 'celeba':
@@ -348,10 +363,7 @@ def train(train_loader, model, criterion, optimizer, epoch, opt):
         input = input.cuda(opt['g'])
         target = target.cuda(opt['g'])
         for mg_idx in range(opt['mg_iter']):
-            stats, S_prob = runner(input, target, model, criterion, optimizer, idx)
-            ctx.S_prob = S_prob
-        if opt['sampler'] == 'invtunnel' or opt['sampler'] == 'tunnel':
-            train_loader.sampler.weights = ctx.S_prob
+            stats = runner(input, target, model, criterion, optimizer, idx, weights_iter, weights_loader)
 
         loss = stats['loss']
         top1 = stats['top1']
@@ -630,8 +642,8 @@ def main_worker(opt):
 
     # Data loading code
     train_loader, clean_train_loader, val_loader, weights_loader, train_length = load_data(opt=opt)
+    weights_iter = iter(weights_loader)
     ctx.train_loader = train_loader
-    #ctx.counter = 1
 
     if opt['dataset'] == 'celeba':
         df = pd.read_csv('/home/aquarium/celebA/celeba_test_all_attributes.csv')
@@ -658,13 +670,16 @@ def main_worker(opt):
             train_clean(clean_train_loader, train_loader, model, criterion, opt)
         return
 
-    if ctx.opt['sampler'] != 'default' and ctx.opt['smart_init_sampler']:
+    if ctx.opt['smart_init_sampler']:
         model.eval()
         for i, (x,y,idx) in enumerate(train_loader):
             x = x.cuda()
             y = y.cuda()
             out, _ = model(x)
-            S_prob = compute_weights(out, y, idx, criterion)
+            if ctx.opt['alternate']:
+                S_prob = compute_weights_alt(criterion, weights_loader, model, ctx.opt)
+            else:
+                S_prob = compute_weights(criterion, weights_loader, model, ctx.opt)
             ctx.S_prob = S_prob
             train_loader.sampler.weights = ctx.S_prob
         model.train()
@@ -673,17 +688,8 @@ def main_worker(opt):
         ctx.epoch = epoch
         adjust_learning_rate(epoch)
         adjust_temperature(epoch, opt)
-        
-        # if opt['sampler'] == 'invtunnel' or opt['sampler'] == 'tunnel':
-        #     new_weights = compute_weights_stats(model, criterion, weights_loader)
-        #     train_loader.sampler.weights = new_weights
-        # else:
-        #     # compute dummy weights for visualization
-        # if ctx.opt['save']:
-        #   _ = compute_weights_stats(model, criterion, weights_loader) 
-        
         # train for one epoch
-        train(train_loader, model, criterion, optimizer, epoch, opt)
+        train(train_loader, model, criterion, optimizer, epoch, opt, weights_iter, weights_loader)
         # filter out samples too hard to fit
         if ctx.epoch == ctx.opt['ep_drop']:
             srt_idx = list(np.argsort(ctx.count.cpu().numpy()))
@@ -694,7 +700,13 @@ def main_worker(opt):
         # evaluate on training set
         if opt['use_train_clean']:
             train_clean(clean_train_loader, train_loader, model, criterion, opt)
-        
+        if ctx.opt['alternate']:
+            S_prob = compute_weights_alt(criterion, weights_loader, model, ctx.opt)
+        else:
+        	S_prob = compute_weights(criterion, weights_loader, model, ctx.opt)
+        train_loader.sampler.weights = S_prob
+
+            
         # update stats of the weights
         if opt['save_w_dyn'] or opt['clustering']:
             _ = compute_weights_stats(model, criterion, weights_loader, save_stats=True)
@@ -765,17 +777,11 @@ def main():
     if ctx.opt['pilot']:
         if ctx.opt['clustering']:
             pilot = {'weights_all_epochs': weights_all_epochs, 'pilot_directory': ctx.opt['filename']}
-            pilot_fn = 'clustering_pilot_' + ctx.opt['dataset'] + '_' + ctx.opt['arch'] + '_' + ctx.opt['sampler']
+            pilot_fn = 'clustering_pilot_' + ctx.opt['dataset'] + '_' + ctx.opt['arch']
         else:
-            # we need the array of sorted indexes in the form [easy --> hard]
-            if ctx.opt['sampler'] == 'tunnel':
-                # weights = p
-                sorted_w, sorted_idx = torch.sort(ctx.sample_mean, descending=True) 
-            else:
-                # weights = 1-p
-                sorted_w, sorted_idx = torch.sort(ctx.sample_mean, descending=False) 
+            sorted_w, sorted_idx = torch.sort(ctx.sample_mean, descending=True) 
             pilot = {'sorted_idx': sorted_idx.cpu().numpy(), 'sorted_w': sorted_w.cpu().numpy(), 
                      'pilot_directory': ctx.opt['filename'], 'pilot_saved': ctx.opt['save']}
-            pilot_fn = 'pilot_' + ctx.opt['dataset'] + '_' + ctx.opt['arch'] + '_' + ctx.opt['sampler']
+            pilot_fn = 'pilot_' + ctx.opt['dataset'] + '_' + ctx.opt['arch']
         with open(os.path.join(ctx.opt['o'], 'pilots', pilot_fn + '.pkl'), 'wb') as handle:
             pkl.dump(pilot, handle, protocol=pkl.HIGHEST_PROTOCOL)
