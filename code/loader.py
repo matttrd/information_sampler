@@ -14,7 +14,7 @@ from PIL import Image
 import os
 import pickle as pkl 
 import pandas as pd 
-from libKMCUDA import kmeans_cuda
+#from libKMCUDA import kmeans_cuda
 from utils import *
 
 data_ingredient = Ingredient('dataset')

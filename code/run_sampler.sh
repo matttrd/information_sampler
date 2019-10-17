@@ -1,1 +1,1 @@
-python hyperoptim.py -c "python main_lt.py with save=True wd=5e-4 exp=sampler sampler='invtunnel' tfl=True" -p '{"dataset.name":["cifar10","cifar100","imagenet_lt"], "arch":["resnet10"], "adjust_classes":["False", "True"]}' --gpus '[2]' -r
+python hyperoptim.py -c "python main_lt.py with save=True wd=1e-4 exp=sampler sampler='invtunnel' tfl=True" -p '{"dataset.name":[imagenet_lt"], "arch":["resnet18"], "adjust_classes":["True"]}' --gpus '[2]' -r
