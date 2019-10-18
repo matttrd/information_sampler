@@ -124,6 +124,7 @@ def cfg():
     ep_drop = -1 # if != -1, epoch in which hard samples are filtered out
     num_drop = 50 # number of hard samples to filter out
     use_train_clean = False # use the clean_train_loader to validate on the training set
+    freq_save_counts = 0 # frequency of sample counts save (no save if equal to 0)
 best_top1 = 0
 
 # for some reason, the db must me created in the global scope
@@ -717,6 +718,14 @@ def main_worker(opt):
             'best_top1': best_top1,
             'optimizer' : optimizer.state_dict(),
         }, is_best)
+
+        if (ctx.opt['freq_save_counts']>0 and (epoch+1) % ctx.opt['freq_save_counts'] == 0) or \
+            (ctx.opt['freq_save_counts']>0 and epoch == ctx.opt['epochs']-1):
+            counts_dir = os.path.join(opt.get('o'), opt['exp'], opt['filename']) +'/sample_counts/'
+            if not os.path.isdir(counts_dir):
+                os.makedirs(counts_dir)
+            with open(os.path.join(counts_dir, 'sample_counts_' + str(epoch) + '.pkl'), 'wb') as handle:
+                pkl.dump(ctx.count.cpu().numpy(), handle, protocol=pkl.HIGHEST_PROTOCOL)
 
         if ctx.opt['save_hist_until_ep'] > 0 and epoch <= ctx.opt['save_hist_until_ep']:
             plt.bar(np.arange(train_length), ctx.count.cpu().numpy(), color='b')
