@@ -87,7 +87,7 @@ def cfg():
     d = 0.
     #save model
     save = False
-
+    save_epochs = []
     # file logger
     if save:
         fl = True
@@ -525,6 +525,12 @@ def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
     meta = dict(SHA=r[0], STATUS=r[1], DIFF=r[2])
     state.update({'meta': meta})
     torch.save(state, fn)
+    if len(opt['save_epochs'])>0 and ctx.epoch in opt['save_epochs']:
+        if opt['pilot']:
+            fn = os.path.join(opt['o'], 'pilots', opt['filename'], 'model_' + str(ctx.epoch) + '.pth.tar')
+        else:
+            fn = os.path.join(opt['o'], opt['exp'], opt['filename'], 'model_' + str(ctx.epoch) + '.pth.tar')
+        torch.save(state, fn)
     # if is_best:
     #     # filename = os.path.join(opt['o'], opt['arch'], 
     #     #                     opt['filename']) + '_best.pth.tar'
