@@ -103,7 +103,7 @@ def cfg():
     # marker
     marker = ''
     unbalanced = False
-    sampler = ''
+    sampler = '' # default | invtunnel | tunnel | alternate
     # tunneling temperature
     temperature = 1.
     temperatures = ''
@@ -124,7 +124,6 @@ def cfg():
     ep_drop = -1 # if != -1, epoch in which hard samples are filtered out
     num_drop = 50 # number of hard samples to filter out
     use_train_clean = False # use the clean_train_loader to validate on the training set
-    alternate = False # alternate "tunnel"-"invtunnel"
     num_tunnel = 1 # if alternate=True, number of epochs with "tunnel" sampler
     num_invtunnel = 1 # if alternate=True, number of epochs with "invtunnel" sampler
 best_top1 = 0
@@ -676,7 +675,7 @@ def main_worker(opt):
             x = x.cuda()
             y = y.cuda()
             out, _ = model(x)
-            if ctx.opt['alternate']:
+            if ctx.opt['sampler'] == 'alternate':
                 S_prob = compute_weights_alt(criterion, weights_loader, model, ctx.opt)
             else:
                 S_prob = compute_weights(criterion, weights_loader, model, ctx.opt)
@@ -700,7 +699,7 @@ def main_worker(opt):
         # evaluate on training set
         if opt['use_train_clean']:
             train_clean(clean_train_loader, train_loader, model, criterion, opt)
-        if ctx.opt['alternate']:
+        if ctx.opt['sampler'] == 'alternate':
             S_prob = compute_weights_alt(criterion, weights_loader, model, ctx.opt)
         else:
         	S_prob = compute_weights(criterion, weights_loader, model, ctx.opt)
