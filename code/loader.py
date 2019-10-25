@@ -9,7 +9,7 @@ from torch.utils.data import Subset
 import numpy as np
 import copy
 import random
-from models import get_num_classes
+from exptutils import get_num_classes
 from PIL import Image
 import os
 import pickle as pkl 
@@ -164,7 +164,7 @@ TEST_TRANSFORMS_224 = transforms.Compose([
 def load_data(name, source, shuffle, frac, perc, mode, pilot_samp, pilot_arch, num_clusters, use_perc_diff, celeba_class_attr, norm, opt):
 
     if name == 'cifar10':
-    	# CIFAR_MEAN = ch.tensor([0.4914, 0.4822, 0.4465])
+        # CIFAR_MEAN = ch.tensor([0.4914, 0.4822, 0.4465])
      #    CIFAR_STD = ch.tensor([0.2023, 0.1994, 0.2010])
         transform_train = transforms.Compose([
             transforms.RandomCrop(32, padding=4),
@@ -256,8 +256,8 @@ def load_data(name, source, shuffle, frac, perc, mode, pilot_samp, pilot_arch, n
             transforms.ToTensor(),
         ])
     elif name == 'imagenet':
-    	transform_train = TRAIN_TRANSFORMS_224
-    	transform_test  = TEST_TRANSFORMS_224
+        transform_train = TRAIN_TRANSFORMS_224
+        transform_test  = TEST_TRANSFORMS_224
     else:
         raise NotImplementedError
     
@@ -393,15 +393,19 @@ def load_data(name, source, shuffle, frac, perc, mode, pilot_samp, pilot_arch, n
     if opt['sampler'] == 'ufoym':
         weights_init = np.get_imbalance_weights(dataset, indices=indices, num_samples=None)
     else:
-        weights_init = torch.DoubleTensor(np.zeros(train_length) + 0.01)
+        if opt['sampler'] == 'tunnel':
+            sc = 0.01
+        else:
+            sc = 1000
+        weights_init = torch.DoubleTensor(np.zeros(train_length) + sc)
 
     sampler = torch.utils.data.WeightedRandomSampler(weights=weights_init, num_samples=int(len(weights_init)), replacement=True)
 
     train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=opt['b'], shuffle=False, num_workers=opt['j'], pin_memory=True, sampler=sampler)
+        train_dataset, batch_size=opt['b'], shuffle=False, num_workers=opt['j'], pin_memory=False, sampler=sampler)
 
     clean_train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=opt['b'], shuffle=False, num_workers=opt['j'], pin_memory=True)
+        train_dataset, batch_size=min(opt['b']*5, 1024), shuffle=False, num_workers=opt['j'], pin_memory=True)
 
     test_loader = torch.utils.data.DataLoader(
         test_dataset, batch_size=opt['b'], shuffle=False, num_workers=opt['j'], pin_memory=True)

@@ -3,7 +3,7 @@ from exptutils import *
 # import tensorflow as tf
 import numpy as np
 import scipy.misc 
-from models import get_num_classes
+from exptutils import get_num_classes
 import torch
 from torch.utils.data import Subset
 
