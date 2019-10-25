@@ -186,7 +186,7 @@ def compute_weights(criterion, weights_loader, model, opt):
                     losses[i] = losses[i] / ratio
             if sampler == 'invtunnel':
                 w = 1 - torch.exp(-losses / temp)
-            elif sampler == 'tunnel':
+            else:
                 w = torch.exp(-losses / temp)    
             weights.append(w)
     S_prob = torch.cat(weights)
