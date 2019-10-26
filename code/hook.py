@@ -154,6 +154,7 @@ class tfLogger(Hook):
         pass
 
     def on_batch_end(self, ctx, out, mode):
+    	pass
         # # 1. Log scalar values (scalar summary)
         # info = { 'loss': loss.item(), 'accuracy': accuracy.item() }
 
@@ -164,14 +165,14 @@ class tfLogger(Hook):
         # if mode is not 'train' or mode is not 'val':
         #     self.logger[mode] = _tfLogger(os.path.join(self.home + '/tflogs', mode))
 
-        if mode is 'train':
-            model = ctx.model
-            if ctx.i % ctx.opt['print_freq'] == 0:
-                for tag, value in model.named_parameters():
-                    tag = tag.replace('.', '/')
-                    self.logger[mode].histo_summary(tag, value.data.view(-1,1).cpu().numpy(), self.steps)
-                    self.logger[mode].histo_summary(tag+'/grad', value.grad.data.cpu().numpy(), self.steps)
-            self.steps += 1
+        # if mode is 'train':
+        #     model = ctx.model
+        #     if ctx.i % ctx.opt['print_freq'] == 0:
+        #         for tag, value in model.named_parameters():
+        #             tag = tag.replace('.', '/')
+        #             self.logger[mode].histo_summary(tag, value.data.view(-1,1).cpu().numpy(), self.steps)
+        #             self.logger[mode].histo_summary(tag+'/grad', value.grad.data.cpu().numpy(), self.steps)
+        #     self.steps += 1
             # # 3. Log training images (image summary)
             # info = { 'osc_images':ctx.images['osc'][:50].cpu().numpy() }
 
