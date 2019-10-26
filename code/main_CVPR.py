@@ -440,11 +440,11 @@ def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
         torch.save(state, fn)
 
     if len(ctx.opt['save_counts_list']) > 0 and ctx.epoch in ctx.opt['save_counts_list'] or \
-            (ctx.opt['freq_save_counts'] > 0 and epoch == ctx.opt['epochs']-1):
+            (ctx.opt['freq_save_counts'] > 0 and ctx.epoch == ctx.opt['epochs']-1):
             counts_dir = os.path.join(opt.get('o'), opt['exp'], opt['filename']) +'/sample_counts/'
             if not os.path.isdir(counts_dir):
                 os.makedirs(counts_dir)
-            with open(os.path.join(counts_dir, 'sample_counts_' + str(epoch) + '.pkl'), 'wb') as handle:
+            with open(os.path.join(counts_dir, 'sample_counts_' + str(ctx.epoch) + '.pkl'), 'wb') as handle:
                 pkl.dump(ctx.count.cpu().numpy(), handle, protocol=pkl.HIGHEST_PROTOCOL)
 
     # if is_best:
