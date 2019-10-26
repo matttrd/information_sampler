@@ -112,6 +112,7 @@ def cfg():
     use_train_clean = False # use the clean_train_loader to validate on the training set
     freq_save_counts = 20 # frequency of sample counts save (no save if equal to 0)
     save_counts_list = [0,59,60,61,119,120,121,159,160,161]
+    corr_labels = 0. # fraction of labels to be corrupted
 best_top1 = 0
 
 # for some reason, the db must me created in the global scope

@@ -59,6 +59,17 @@ class MyDataset(Dataset):
     def __len__(self):
         return len(self.data)
 
+
+def corrupt_labels(train_labels, corrupt_prob, num_classes):
+    labels = np.array(train_labels)
+    np.random.seed(12345)
+    mask = np.random.rand(len(labels)) <= corrupt_prob
+    rnd_labels = np.random.choice(num_classes, mask.sum())
+    labels[mask] = rnd_labels
+    labels = [int(x) for x in labels]
+    return labels, mask
+
+
 class LT_Dataset(Dataset):
     def __init__(self, root, txt, transform=None):
         self.img_path = []
@@ -340,10 +351,18 @@ def load_data(name, source, shuffle, frac, perc, mode, pilot_samp, pilot_arch, n
         train_length = len(train_dataset)
         print('New Dataset length is ', train_length)
 
-    if frac < 1:
-        indices = indices[:int(frac * train_length)]
-        train_dataset = Subset(train_dataset, indices)
-        train_length = len(train_dataset)
+
+    if opt['corr_labels'] > 0:
+        corr_labels, indices = corrupt_labels(train_dataset.data.targets, opt['corr_labels'], num_classes)
+        train_dataset.data.targets = corr_labels
+        fn = os.path.join(opt.get('o'), opt['exp'], opt['filename'])
+        with open(os.path.join(fn, 'indices_corr_' + str(opt['corr_labels']) + '.pkl'), 'wb') as handle:
+            pkl.dump(indices, handle, protocol=pkl.HIGHEST_PROTOCOL)
+
+    # if frac < 1:
+    #     indices = indices[:int(frac * train_length)]
+    #     train_dataset = Subset(train_dataset, indices)
+    #     train_length = len(train_dataset)
 
     if opt['classes'] is not None:
         sclasses = opt['classes']
