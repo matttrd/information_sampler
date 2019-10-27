@@ -25,7 +25,7 @@ import pickle as pkl
 from utils_lt import shot_acc
 from IPython import embed
 import matplotlib.pyplot as plt 
-
+import defaults
 
 # local thread used as a global context
 ctx = threading.local()
@@ -128,7 +128,9 @@ best_top1 = 0
 def init(name):
     ctx.global_iters = 0
     ctx.epoch = 0
-    ctx.opt = init_opt(ctx) 
+    ctx.opt = init_opt(ctx)
+    ctx.opt = defaults.add_args_to_opt(name, ctx.opt)
+
     if ctx.opt.get('filename', None) is None:
         build_filename(ctx)
 
