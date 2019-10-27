@@ -1,0 +1,1 @@
+python hyperoptim.py -c "python main_CVPR.py with save=True j=10 dataset.name='cifar10' exp='CVPR_label_corr' tfl=True o='/home/matteo/information_sampler/results/'" -p '{"sampler":["default","invtunnel"],"b":[128,256,512], "temperature":[0.001], "arch":["resnet18"],"normalizer":["True"],"corr_labels":[0.1,0.2,0.3]}' --gpus '[0,1]' -j 4 -r
