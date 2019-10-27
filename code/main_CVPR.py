@@ -95,7 +95,7 @@ def cfg():
     # marker
     marker = ''
     unbalanced = False
-    sampler = 'default' # (default | invtunnel | tunnel | ufoym )
+    sampler = 'default' # (default | invtunnel | tunnel | class )
     normalizer = False
     # tunneling temperature
     temperature = 1.

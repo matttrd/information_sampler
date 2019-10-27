@@ -409,13 +409,24 @@ def load_data(name, source, shuffle, frac, perc, mode, pilot_samp, pilot_arch, n
         train_length = len(train_dataset)   
 
     weights_loader = torch.utils.data.DataLoader(train_dataset, batch_size=opt['b'], shuffle=False, num_workers=opt['j'], pin_memory=True) # used for the computation of the weights
-    if opt['sampler'] == 'ufoym':
-        weights_init = np.get_imbalance_weights(dataset, indices=indices, num_samples=None)
+    if opt['sampler'] == 'class':
+        label_to_count = {}
+        for label in train_dataset.data.targets:
+            if label in label_to_count:
+                label_to_count[label] += 1
+            else:
+                label_to_count[label] = 1
+                
+        # weight for each sample
+        weights = [1.0 / label_to_count[label] for i, (_, label, idx) in enumerate(train_dataset)]
+        weights_init = torch.DoubleTensor(weights)
+
+        #weights_init = np.get_imbalance_weights(dataset, indices=indices, num_samples=None)
     else:
         if opt['sampler'] == 'tunnel':
-            sc = 0.01
+            sc = 1e-4
         else:
-            sc = 1000
+            sc = 1e4
         weights_init = torch.DoubleTensor(np.zeros(train_length) + sc)
 
     sampler = torch.utils.data.WeightedRandomSampler(weights=weights_init, num_samples=int(len(weights_init)), replacement=True)
