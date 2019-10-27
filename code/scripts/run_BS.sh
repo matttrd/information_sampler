@@ -1,0 +1,3 @@
+#python hyperoptim.py -c "python main_lt.py with exp='BS' j=30 wd=1e-4 arch='resnet18' save=True o='information_sampler/results/'" -p '{"dataset.name":["imagenet_lt"], "sampler":["default", "invtunnel"], "b": [8,16,32,64,128,256,512,1024]}' --gpus '[0,1]'
+#python hyperoptim.py -c "python main_lt.py with exp='BS' j=30 wd=1e-4 arch='resnet18' save=True o='../results/'" -p '{"dataset.name":["imagenet_lt"], "sampler":["default", "invtunnel"], "b": [256,128,64]}' --gpus '[0,1]' -j 2 -r
+python hyperoptim.py -c "python main_lt.py with exp='BS' j=30 wd=1e-4 arch='resnet18' save=True o='../results/'" -p '{"dataset.name":["imagenet_lt"], "sampler":["invtunnel"], "b": [256]}' --gpus '[0,1]' -j 2 -r

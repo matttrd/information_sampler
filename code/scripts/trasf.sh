@@ -1,0 +1,2 @@
+python main_pretr.py with exp='transf' dataset.name='cifar100' wd=5e-4 arch='resnet10' resume='(Aug_18_11_57_32)_opt_{"arch":"resnet10","dataset":"cifar10","exp":"sampler","sampler":"invtunnel","wd":0.0005}/last_checkpoint.pth.tar' orig_dataset='cifar10' save=True
+python main_lt.py with exp='transf' wd=5e-4 dataset.name='cifar10' arch='resnet10' save=True
