@@ -63,11 +63,16 @@ class MyDataset(Dataset):
 def corrupt_labels(train_labels, corrupt_prob, num_classes):
     labels = np.array(train_labels)
     np.random.seed(12345)
-    mask = np.random.rand(len(labels)) <= corrupt_prob
-    rnd_labels = np.random.choice(num_classes, mask.sum())
-    labels[mask] = rnd_labels
-    labels = [int(x) for x in labels]
-    return labels, mask
+    #mask = np.random.rand(len(labels)) <= corrupt_prob
+    #rnd_labels = np.random.choice(num_classes, mask.sum())
+    rnd_labels = np.random.choice(num_classes, int(len(train_labels) * corrupt_prob))
+    indices = np.random.choice(np.arange(len(labels)), int(len(train_labels) * corrupt_prob))
+    #labels[mask] = rnd_labels
+    #labels = [int(x) for x in labels]
+    for i, idx in enumerate(indices):
+        labels[idx] = rnd_labels[i]
+    return labels, indices
+    #return labels, mask
 
 
 class LT_Dataset(Dataset):
