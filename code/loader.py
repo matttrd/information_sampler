@@ -437,7 +437,7 @@ def load_data(name, source, shuffle, frac, perc, mode, pilot_samp, pilot_arch, n
         norm_ = np.array(list(label_to_count.values())).sum()
 
         for k,v in label_to_count.items():
-            weights_init[labels == k] = v / norm_
+            weights_init[labels == k] = norm_ / v
 
         #weights_init = np.get_imbalance_weights(dataset, indices=indices, num_samples=None)
     else:
