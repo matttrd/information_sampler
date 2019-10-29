@@ -328,9 +328,6 @@ def train(train_loader, model, criterion, optimizer, epoch, opt, complete_output
     ctx.errors = ClassErrorMeter(topk=[1,5])
     n_iters = int(len(train_loader) * opt['wufreq'])
 
-    if epoch == 10:
-        embed()
-
     # switch to train mode
     model.train()
 
