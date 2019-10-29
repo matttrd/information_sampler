@@ -484,7 +484,8 @@ def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
                 os.makedirs(counts_dir)
             with open(os.path.join(counts_dir, 'sample_counts_' + str(ctx.epoch) + '.pkl'), 'wb') as handle:
                 pkl.dump(ctx.count.cpu().numpy(), handle, protocol=pkl.HIGHEST_PROTOCOL)
-
+            # with open(os.path.join(ctx.inp_w_dir, 'weights_means.pkl'), 'wb') as handle:
+            # pkl.dump(ctx.sample_mean.cpu().numpy(), handle, protocol=pkl.HIGHEST_PROTOCOL)
     # if is_best:
     #     # filename = os.path.join(opt['o'], opt['arch'],
     #     #                     opt['filename']) + '_best.pth.tar'
@@ -661,7 +662,7 @@ def main():
     main_worker(ctx.opt)
 
     # Saving forgetting_stats
-    save_dir = os.path.join(opt.get('o'), opt['exp'], opt['filename'], 'forgetting_stats')
+    save_dir = os.path.join(ctx.opt.get('o'), ctx.opt['exp'], ctx.opt['filename'], 'forgetting_stats')
     os.makedirs(save_dir, exist_ok=True)
     with open(os.path.join(save_dir, 'stats.pkl'), 'wb') as handle:
         pkl.dump(ctx.forgetting_stats, handle, protocol=pkl.HIGHEST_PROTOCOL)
