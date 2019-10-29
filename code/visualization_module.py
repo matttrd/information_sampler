@@ -87,8 +87,6 @@ def get_default_value(name):
 def get_data_loss_top1(opt):
     # list of source directories
     source_dir = ['{}{}_{}_{}'.format(opt['base'],opt['exp'],pair[0],pair[1]) for pair in list(itertools.product(opt['arch'], opt['datasets']))]
-    print(source_dir)
-    print()
     d = []
     for dir_ in source_dir:
         expts = glob2.glob(f'{dir_}/**/*.log')
