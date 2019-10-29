@@ -40,7 +40,7 @@ parser = argparse.ArgumentParser(description='count_visualization',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('--sd', default=f'..{os.sep}results') #Note this is not used now since we are saving on the exp run folder 
 parser.add_argument('--base', default=f'..{os.sep}results')
-parser.add_argument('--epochs', default=[0,1,2,59,119,159])
+parser.add_argument('--epochs', default=[59,119,159,179])
 opt = vars(parser.parse_args())
 
 epochs = [str(ep) for ep in opt['epochs']]
@@ -49,24 +49,24 @@ epochs = [str(ep) for ep in opt['epochs']]
 # key=experiment, value=list of differnt runs (!=hyperparameters)
 exp_type = {}
 for exp in os.listdir(opt['base']):
-    experiments = []
-    for filename in os.listdir(os.path.join(opt['base'], exp)):
-        experiments.append(filename)
-    exp_type[exp] = experiments
+    #experiments = []
+    # for filename in os.listdir(os.path.join(opt['base'], exp)):
+    #     experiments.append(filename)
+    #exp_type[exp] = experiments
+    exp_type[exp] = exp
 
 # Creating a dictionary (keys are exp + run) of dictionaries containing the
 # actual counts (filtered by epochs) and the saving path
 counts = {}
 for exp, run in exp_type.items():
-    for name_run in run:
-        path = os.path.join(opt['base'], exp, name_run)
-        counts[exp + '_' + name_run] = {'counts': []}
-        for file in os.listdir(os.path.join(path, 'sample_counts')):
-            if file.split('_')[-1].split('.')[0] in epochs:
-                with open(os.path.join(path, 'sample_counts', file), 'rb') as f:
-                    counts[exp + '_' + name_run]['counts'].append(pkl.load(f))
-        counts[exp + '_' + name_run]['save_path'] = os.path.join(path, 'analysis')
-        if not os.path.isdir(counts[exp + '_' + name_run]['save_path']):
-            os.mkdir(counts[exp + '_' + name_run]['save_path'])
+    path = os.path.join(opt['base'], exp)
+    counts[exp + '_'] = {'counts': []}
+    for file in os.listdir(os.path.join(path, 'sample_counts')):
+        if file.split('_')[-1].split('.')[0] in epochs:
+            with open(os.path.join(path, 'sample_counts', file), 'rb') as f:
+                counts[exp + '_']['counts'].append(pkl.load(f))
+    counts[exp + '_']['save_path'] = os.path.join(path, 'analysis')
+    if not os.path.isdir(counts[exp + '_']['save_path']):
+        os.mkdir(counts[exp + '_']['save_path'])
 
 create_histograms(counts)
