@@ -55,7 +55,7 @@ def cfg():
     #nesterov
     nesterov = True
     # weight decay (ell-2)
-    wd = 0.
+    wd = 5e-4
     # print-freq
     print_freq = 50
     # path to latest checkpoint
