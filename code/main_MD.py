@@ -609,9 +609,6 @@ def main_worker(opt):
             adjust_learning_rate(epoch)
         adjust_temperature(epoch, opt)
 
-        if ctx.opt['save']:
-          _ = compute_weights_stats(model, criterion, weights_loader)
-
         # train for one epoch
         train(train_loader, model, criterion, optimizer, epoch, opt, complete_outputs)
 
@@ -622,6 +619,7 @@ def main_worker(opt):
             train_clean(clean_train_loader, train_loader, model, criterion, opt)
         end_t = time.time()
         print(end_t-start_t)
+        
         # update stats of the weights
         if opt['pilot']:
             _ = compute_weights_stats(model, criterion, weights_loader, save_stats=False)
@@ -652,13 +650,13 @@ def get_counter_sorting():
 def get_cum_loss_sorting():
     '''
     Get sorted index (descending=False)
-    '''
-    losses = [torch.sum(torch.tensor(stat['loss'])) for stat in ctx.forgetting_stats]
-    sorted_v, sorted_idx = torch.sort(losses, descending=False)
+    '''  
+    losses = [torch.sum(torch.tensor(stat['loss'])).item() for _, stat in ctx.forgetting_stats.items()]
+    sorted_v, sorted_idx = torch.sort(torch.tensor(losses).cuda(ctx.opt['g']), descending=False)
     return sorted_v, sorted_idx
 
 def get_w_mean_sorting():
-    sorted_w, sorted_idx = torch.sort(ctx.sample_mean, descending=False)
+    sorted_v, sorted_idx = torch.sort(ctx.sample_mean, descending=False)
     return sorted_v, sorted_idx
 
 
@@ -703,4 +701,4 @@ def main():
   
         pilot_fn = 'pilot_' + ctx.opt['dataset'] + '_' + ctx.opt['arch'] + '_' + ctx.opt['sampler']
         with open(os.path.join(ctx.opt['o'], 'pilots', pilot_fn + '.pkl'), 'wb') as handle:
-            pkl.dump(pilot, handle, protocol=pkl.HIGHEST_PROTOCOL)
+            pkl.dump(pilots, handle, protocol=pkl.HIGHEST_PROTOCOL)
