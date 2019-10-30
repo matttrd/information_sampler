@@ -19,7 +19,8 @@ def kde_sklearn(x, x_grid, bandwidth=0.2, **kwargs):
 def create_histograms(counts):
     print('\nNote, the epochs are not parametrized in the function: create_histograms\n')
     for exp, value in counts.items():
-        max_num_counts = int(np.array(counts[exp]['counts']).max())
+        # max_num_counts = int(np.array(counts[exp]['counts']).max())
+        max_num_counts = 500
         x_grid = np.linspace(0, max_num_counts, max_num_counts) # you can choose the amplitude changing 250
         plt.figure()
         info_exp = counts[exp]['name_exp']
