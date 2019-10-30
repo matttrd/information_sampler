@@ -33,6 +33,7 @@ def cfg():
              # remove (clustering of input weights dynamics):  farthest (3)       | nearest (4)      | random (5)  
     pilot_samp = 'default' # sampler used to train the pilot net: default | invtunnel | tunnel | ufoym 
     pilot_arch = 'allcnn' # architecture used for the pilot net
+    mode_source = 'counter' # counter | cum_loss | w_mean
     num_clusters = 500 # number of clusters if mode = 3, 4, 5
     use_perc_diff = False # clustering performed on perc differences of weights
     celeba_class_attr = 'Smiling' # attribute used for binary classification in celebA
@@ -179,7 +180,7 @@ TEST_TRANSFORMS_224 = transforms.Compose([
     ])
 
 @data_ingredient.capture
-def load_data(name, source, shuffle, frac, perc, mode, pilot_samp, pilot_arch, num_clusters, use_perc_diff, celeba_class_attr, norm, opt):
+def load_data(name, shuffle, opt):
 
     if name == 'cifar10':
         # CIFAR_MEAN = ch.tensor([0.4914, 0.4822, 0.4465])
@@ -326,7 +327,7 @@ def load_data(name, source, shuffle, frac, perc, mode, pilot_samp, pilot_arch, n
             fn = pilot_fn = 'pilot_' + name + '_' + pilot_arch + '_' + pilot_samp
             with open(os.path.join(opt['o'], 'pilots', fn + '.pkl'), 'rb') as f:
                 pilot = pkl.load(f)
-            sd_idx = np.squeeze(pilot['sorted_idx'])
+            sd_idx = np.squeeze(pilot[mode_source]['sorted_idx'])
             if mode == 0:
                 idx = sd_idx[int((1 - perc) * train_length):]
             elif mode == 1:

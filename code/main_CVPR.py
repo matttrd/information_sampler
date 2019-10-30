@@ -672,7 +672,6 @@ def main():
     with open(os.path.join(save_dir, 'stats.pkl'), 'wb') as handle:
         pkl.dump(ctx.forgetting_stats, handle, protocol=pkl.HIGHEST_PROTOCOL)
 
-
     if ctx.opt['pilot']:
         # we need the array of sorted indexes in the form [easy --> hard]
         if ctx.opt['sampler'] == 'tunnel':
