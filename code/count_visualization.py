@@ -23,7 +23,7 @@ def create_histograms(counts):
         x_grid = np.linspace(0, max_num_counts, max_num_counts) # you can choose the amplitude changing 250
         plt.figure()
         info_exp = counts[exp]['name_exp']
-        plt.title(info_exp['dataset'] + ' ' + info_exp['arch'] + ' BS' + info_exp['b'] + ' ' + info_exp['sampler'] + ' norm ' + str(info_exp['normalizer']) + ' Temp' + str(info_exp['temperature']) )
+        plt.title(info_exp['dataset'] + ' ' + info_exp['arch'] + ' BS' + str(info_exp['b']) + ' ' + info_exp['sampler'] + ' norm ' + str(info_exp['normalizer']) + ' Temp' + str(info_exp['temperature']) )
         for c in value['counts']:
             pdf = kde_sklearn(c, x_grid, bandwidth=2)  #Note, the bandwidth can be changed here
             plt.plot(x_grid, pdf, label="Mean: " + str(np.mean(np.array(c))) + " std: " + str(np.std(np.array(c))) + f', epoch: {str(sum(c)/50000)}', linewidth=2)
@@ -38,7 +38,7 @@ def create_histograms(counts):
             # plt.savefig(os.path.join(value['save_path'], 'histogram.pdf', dpi=2560, bbox_inches='tight'))
 
 def get_params_from_log(f):
-    blacklist = ['lrs', 'B', 'b', 'd', 's', 'ids', 'd', \
+    blacklist = ['lrs', 'B', 'd', 's', 'ids', 'd', \
                 'save', 'metric', 'nc', 'g', 'j', 'env', 'burnin', \
                 'alpha', 'delta', 'beta', 'lambdas', 'append', \
                 'ratio', 'bfrac', 'l2', 'v', 'frac', 'rhos']
