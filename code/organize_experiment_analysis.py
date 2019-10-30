@@ -13,11 +13,11 @@ def get_paths_to_be_saved(run):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Options")
-    parser.add_argument('--input_dir', type=str, required=True) # Choose the experiment
+    parser.add_argument('--exp', type=str, required=True) # Choose the experiment
     parser.add_argument('--output_dir', type=str, default=None)
     args = parser.parse_args()
 
-    exp_path =  os.path.join(f'..{os.sep}results{os.sep}', args.input_dir)
+    exp_path =  os.path.join(f'..{os.sep}results{os.sep}', args.exp)
 
     if not args.output_dir:
         save_path =os.path.join(exp_path, 'analysis_experiments')
@@ -29,4 +29,3 @@ if __name__ == "__main__":
         if not run == 'analysis_experiments':
             for file in get_paths_to_be_saved(os.path.join(exp_path, run)):
                 copyfile(file, os.path.join(save_run_path, file.split(f'{os.sep}')[-1]))
-
