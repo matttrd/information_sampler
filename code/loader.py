@@ -180,7 +180,9 @@ TEST_TRANSFORMS_224 = transforms.Compose([
     ])
 
 @data_ingredient.capture
-def load_data(name, shuffle, opt):
+def load_data(name, source, shuffle, frac, perc, mode, \
+		pilot_samp, pilot_arch, num_clusters, use_perc_diff, \
+		celeba_class_attr, norm, mode_source, opt):
 
     if name == 'cifar10':
         # CIFAR_MEAN = ch.tensor([0.4914, 0.4822, 0.4465])
