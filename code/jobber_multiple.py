@@ -42,11 +42,14 @@ with open(opt['input'], 'r') as f:
     cmds = f.readlines()
 
 cmds = [x.strip() for x in cmds if x[0] != '#']
+cmdss = []
+
 for c in cmds:
-	c = c + (' g=%d')%(gs[len(cmds)%len(gs)])
+    c = c + (' g=%d')%(gs[len(cmdss)%len(gs)])
+    cmdss.append(c)
 
 if not opt['run']:
-    for c in cmds:
+    for c in cmdss:
         print(c)
 else:
-    run_cmds(cmds, opt['max_jobs'])
+    run_cmds(cmdss, opt['max_jobs'])
