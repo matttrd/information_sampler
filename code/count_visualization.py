@@ -68,7 +68,8 @@ exp_path = os.path.join(f'..{os.sep}results{os.sep}', opt['exp'])
 # Parsing the experiment folder creating a dict of runs
 exp_runs = {}
 for exp in os.listdir(exp_path):
-    exp_runs[exp] = exp
+    if not exp == 'analysis_experiments':
+        exp_runs[exp] = exp
 
 # embed()
 
