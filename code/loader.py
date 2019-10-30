@@ -14,8 +14,10 @@ from PIL import Image
 import os
 import pickle as pkl 
 import pandas as pd 
+from tqdm import tqdm
 #from libKMCUDA import kmeans_cuda
 from utils import *
+from exptutils import logical_index
 
 data_ingredient = Ingredient('dataset')
 
@@ -416,15 +418,26 @@ def load_data(name, source, shuffle, frac, perc, mode, pilot_samp, pilot_arch, n
     weights_loader = torch.utils.data.DataLoader(train_dataset, batch_size=opt['b'], shuffle=False, num_workers=opt['j'], pin_memory=True) # used for the computation of the weights
     if opt['sampler'] == 'class':
         label_to_count = {}
-        for label in train_dataset.data.targets:
+
+        try:
+            labels = train_dataset.data.targets
+        except:
+            labels = train_dataset.labels
+
+        for label in labels:
             if label in label_to_count:
                 label_to_count[label] += 1
             else:
                 label_to_count[label] = 1
                 
-        # weight for each sample
-        weights = [1.0 / label_to_count[label] for i, (_, label, idx) in enumerate(train_dataset)]
-        weights_init = torch.DoubleTensor(weights)
+        # temp = torch.utils.data.DataLoader(
+        # train_dataset, batch_size=128, shuffle=False, num_workers=opt['j'], pin_memory=False)
+        labels = torch.tensor(labels).cuda(opt['g'])
+        weights_init = torch.zeros_like(labels).double()
+        norm_ = np.array(list(label_to_count.values())).sum()
+
+        for k,v in label_to_count.items():
+            weights_init[labels == k] = norm_ / v
 
         #weights_init = np.get_imbalance_weights(dataset, indices=indices, num_samples=None)
     else:
