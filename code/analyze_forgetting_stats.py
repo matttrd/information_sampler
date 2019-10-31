@@ -16,6 +16,8 @@ def compute_forgetting_statistics(stats, npresentations):
         presentation_acc = np.array(example_stats['acc'][:npresentations])
         transitions = presentation_acc[1:] - presentation_acc[:-1]
 
+        embed()
+
         # Find all presentations when forgetting occurs
         if len(np.where(transitions == -1)[0]) > 0:
             unlearned_per_presentation[example_id] = np.where(
@@ -97,11 +99,14 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
 
-    path = os.path.join(f'..{os.sep}results', 'MD_resnet10_cifar10', '1', 'forgetting_stats')
+    exp = 'CVPR_sampler_resnet18_cifar100'
+    run = '(ott_30_14_21_24)_opt_{"arch":"resnet18","dataset":"cifar100","exp":"CVPR_sampler","normalizer":true,"sampler":"invtunnel","temperature":0.1}'
+    path = os.path.join(f'..{os.sep}results', exp, run, 'forgetting_stats')
 
     with open(os.path.join(path, 'stats.pkl'), 'rb') as fin:
         loaded = pkl.load(fin)
 
+    embed()
 
     # Compute the forgetting statistics per example for training run
     _, unlearned_per_presentation, _, first_learned = compute_forgetting_statistics(

@@ -671,9 +671,9 @@ def get_forgetting_events():
             unlearned_per_presentation.append(len(np.where(
                 transitions == -1)[0]))
         else:
-            unlearned_per_presentation.append([])
+            unlearned_per_presentation.append(0)
     
-    sorted_v, sorted_idx = torch.sort(unlearned_per_presentation, descending=False)
+    sorted_v, sorted_idx = torch.sort(torch.tensor(unlearned_per_presentation).cuda(ctx.opt['g']), descending=False)
     return sorted_v, sorted_idx 
 
 @ctx.ex.automain
