@@ -659,6 +659,22 @@ def get_w_mean_sorting():
     sorted_v, sorted_idx = torch.sort(ctx.sample_mean, descending=False)
     return sorted_v, sorted_idx
 
+def get_forgetting_events():
+    unlearned_per_presentation = []
+    for example_id, example_stats in ctx.forgetting_stats.items():
+        # Forgetting event is a transition in accuracy from 1 to 0
+        presentation_acc = np.array(example_stats['acc'])
+        transitions = presentation_acc[1:] - presentation_acc[:-1]
+        
+        # Find all presentations when forgetting occurs
+        if len(np.where(transitions == -1)[0]) > 0:
+            unlearned_per_presentation.append(len(np.where(
+                transitions == -1)[0]))
+        else:
+            unlearned_per_presentation.append([])
+    
+    sorted_v, sorted_idx = torch.sort(unlearned_per_presentation, descending=False)
+    return sorted_v, sorted_idx 
 
 @ctx.ex.automain
 def main():
@@ -688,17 +704,17 @@ def main():
 
         ## counter ##
         scv, sci = get_counter_sorting()
-        pilot = {'sorted_idx': sci.cpu().numpy(), 'sorted_w': scv.cpu().numpy()}
-        pilots['counter'] = pilot
+        pilots['counter'] = {'sorted_idx': sci.cpu().numpy(), 'sorted_w': scv.cpu().numpy()}
         ## cum loss ##
         slv, sli = get_cum_loss_sorting()
-        pilot = {'sorted_idx': sli.cpu().numpy(), 'sorted_w': slv.cpu().numpy()}
-        pilots['cum_loss'] = pilot
+        pilots['cum_loss'] = {'sorted_idx': sli.cpu().numpy(), 'sorted_w': slv.cpu().numpy()}
         ## weights mean ##
         swv, swi = get_w_mean_sorting()
-        pilot = {'sorted_idx': swi.cpu().numpy(), 'sorted_w': swv.cpu().numpy()}
-        pilots['w_mean'] = pilot
-  
+        pilots['w_mean'] = {'sorted_idx': swi.cpu().numpy(), 'sorted_w': swv.cpu().numpy()}
+        ## gorgetting events
+        sfv, sfi = get_forgetting_events()
+        pilots['f_events'] = {'sorted_idx': swi.cpu().numpy(), 'sorted_w': swv.cpu().numpy()}
+        
         pilot_fn = 'pilot_' + ctx.opt['dataset'] + '_' + ctx.opt['arch'] + '_' + ctx.opt['sampler']
         with open(os.path.join(ctx.opt['o'], 'pilots', pilot_fn + '.pkl'), 'wb') as handle:
             pkl.dump(pilots, handle, protocol=pkl.HIGHEST_PROTOCOL)
