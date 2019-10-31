@@ -713,7 +713,7 @@ def main():
         pilots['w_mean'] = {'sorted_idx': swi.cpu().numpy(), 'sorted_w': swv.cpu().numpy()}
         ## gorgetting events
         sfv, sfi = get_forgetting_events()
-        pilots['f_events'] = {'sorted_idx': swi.cpu().numpy(), 'sorted_w': swv.cpu().numpy()}
+        pilots['f_events'] = {'sorted_idx': sfi.cpu().numpy(), 'sorted_w': sfv.cpu().numpy()}
         
         pilot_fn = 'pilot_' + ctx.opt['dataset'] + '_' + ctx.opt['arch'] + '_' + ctx.opt['sampler']
         with open(os.path.join(ctx.opt['o'], 'pilots', pilot_fn + '.pkl'), 'wb') as handle:
