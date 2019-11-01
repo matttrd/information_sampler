@@ -126,6 +126,8 @@ def plot_MD_exp():
     ex = []
     # remove pilots
     for f in expts:
+        if f.split('/')[-3] == 'analysis_experiments':
+                continue
         fstr = '{' + f.split('{')[1].split('}')[0] + '}'
         keywords = json.loads(fstr)
         if 'pilot' not in keywords.keys():
@@ -154,8 +156,8 @@ def plot_MD_exp():
     dfc = df.copy()
     dfc = dfc.filter(items=whitelist)
     dv = dfc[(dfc['val'] == True)]
-    dv = dv[dv['e'] == 199]
-
+    dv = dv[dv['e'] == 179]
+    embed()
     plt.clf()
     ax_top1 = sns.lineplot(x='perc', y='top1', hue='mode_source', data=dv)
     bn = opt['base'].split('/')[-1]

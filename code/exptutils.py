@@ -139,12 +139,15 @@ def build_filename(ctx):
                 dconf['norm'] = opt['dataset']['norm']
             if opt['dataset']['mode'] > 0:
                 dconf['mode'] = opt['dataset']['mode']
+                if opt['dataset']['mode_source'] =! 'counter':
+                dconf['mode'] = opt['dataset']['mode']
         else:
             dconf[k] = opt[k]
 
     opt['perc'] = opt['dataset']['perc']
     opt['norm'] = opt['dataset']['norm']
     opt['mode'] = opt['dataset']['mode']
+    opt['mode_source'] = opt['dataset']['mode_source']
     
     base_whilelist = ['dataset', 'arch']
     blacklist = ['wd', 'lrs', 'g','save', 'fl', 'tfl', 'dbl', 'o', 'source', '__doc__', 'j', 'print_freq']
