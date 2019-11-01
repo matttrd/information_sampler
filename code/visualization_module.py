@@ -88,7 +88,7 @@ def get_default_value(name):
                   'use_train_clean':False,'corr_labels':0.}
     return def_values[name]
 
-def check_default(opt, keywords):
+def check_default_compared(opt, keywords):
     kws = dict()
     if 'arch' not in keywords.keys():
         keywords['arch'] = 'resnet10'
@@ -115,6 +115,20 @@ def check_default(opt, keywords):
                 kws[name] = keywords[name]
     return kws
 
+def check_default_single(opt, keywords):
+    kws = dict()
+    if 'arch' not in keywords.keys():
+        keywords['arch'] = 'resnet10'
+        kws['arch'] = keywords['arch']
+    if 'dataset' not in keywords.keys():
+        keywords['dataset'] = 'cifar10'
+        kws['dataset'] = keywords['dataset']
+    if 'use_train_clean' not in keywords.keys():
+        keywords['use_train_clean'] = False
+        kws['use_train_clean'] = keywords['use_train_clean']
+    
+    return kws
+
 
 def get_all_data_loss_top1(opt):
     # list of source directories
@@ -136,7 +150,7 @@ def get_all_data_loss_top1(opt):
             fstr = '{' + f.split('{')[1].split('}')[0] + '}'
             keywords = json.loads(fstr)
             # default settings
-            kws = check_default(opt, keywords)
+            kws = check_default_compared(opt, keywords)
             # load data
             di = loadlog(f, kws=kws)
             d.append(di)
@@ -168,6 +182,57 @@ def get_all_data_loss_top1(opt):
 
     return pd.concat([df_train, df_val])
 
+def single_plot_train_val(opt):
+    exp_dir = opt['exp_dir']
+    expts = glob2.glob(f'{exp_dir}/**/*.log')
+    ex = []
+    # remove pilots
+    for f in expts:
+        if f.split('/')[-3] == 'analysis_experiments':
+            continue
+        fstr = '{' + f.split('{')[1].split('}')[0] + '}'
+        keywords = json.loads(fstr)
+        if 'pilot' not in keywords.keys():
+            ex.append(f)
+    
+    for f in ex:
+        run_name = '/'.join(f.split('/')[:-2])
+        fstr = '{' + f.split('{')[1].split('}')[0] + '}'
+        keywords = json.loads(fstr)
+        # default settings
+        kws = check_default_single(opt, keywords)
+        # load data
+        df = loadlog(f, kws=kws)
+        whitelist = ['use_train_clean','train_clean','train','val','e','loss', 'top1']
+        df = df[(df['summary'] == True)]
+        dfc = df.copy()
+        dfc = dfc.filter(items=whitelist)
+        # train-val
+        if all(dfc.use_train_clean.unique()): 
+            # we used train_clean
+            df_train = dfc[dfc.train_clean==True]
+        else:
+            # we did not use train_clean 
+            df_train = dfc[dfc.train==True]
+        df_val = dfc[dfc.val==True]
+        df_train['phase'] = ['train' for i in range(len(df_train))]
+        df_val['phase'] = ['val' for i in range(len(df_val))]
+        d = pd.concat([df_train, df_val])
+        # create plot
+        ax = sns.lineplot(x='e', y=opt['plot'], style='phase', data=d)
+        fm = ticker.ScalarFormatter()
+        fm.set_scientific(False)
+        ax.yaxis.set_major_formatter(fm)
+        ax.yaxis.set_minor_formatter(fm)
+        ax.set(xlabel='epoch', ylabel=opt['plot'])
+        # save plot
+        dir_ = os.path.join(run_name, 'analysis')
+        if not os.path.isdir(dir_):
+            os.makedirs(dir_)
+        plt.savefig(os.path.join(dir_, opt['plot'] + '.pdf'), bbox_inches='tight', format='pdf')
+        plt.close()
+
+
 def get_all_data_counts(opt):
     # list of source directories
     source_dir = ['{}{}_{}_{}'.format(opt['base'],opt['exp'],pair[0],pair[1]) for pair in list(itertools.product(opt['arch'], opt['datasets']))]
@@ -186,7 +251,7 @@ def get_all_data_counts(opt):
             fstr = '{' + f.split('{')[1].split('}')[0] + '}'
             keywords = json.loads(fstr)
             # default settings
-            kws = check_default(opt, keywords)
+            kws = check_default_compared(opt, keywords)
             # load data
             train_labels = np.load('./train_labels_' + keywords['dataset'] + '.npy')
             num_classes = len(np.unique(train_labels))
