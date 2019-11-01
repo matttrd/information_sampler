@@ -88,7 +88,35 @@ def get_default_value(name):
                   'use_train_clean':False,'corr_labels':0.}
     return def_values[name]
 
-def get_data_loss_top1(opt):
+def check_default(opt, keywords):
+    kws = dict()
+    if 'arch' not in keywords.keys():
+        keywords['arch'] = 'resnet10'
+        kws['arch'] = keywords['arch']
+    if 'dataset' not in keywords.keys():
+        keywords['dataset'] = 'cifar10'
+        kws['dataset'] = keywords['dataset']
+    if 'use_train_clean' not in keywords.keys():
+        keywords['use_train_clean'] = False
+        kws['use_train_clean'] = keywords['use_train_clean']
+    if opt['hue'] is not None and list(opt['hue'].keys())[0] not in keywords.keys():
+        keywords[list(opt['hue'].keys())[0]] = get_default_value(list(opt['hue'].keys())[0])
+        kws[list(opt['hue'].keys())[0]] = keywords[list(opt['hue'].keys())[0]]
+    if opt['style'] is not None and list(opt['style'].keys())[0] not in keywords.keys():
+        keywords[list(opt['style'].keys())[0]] = get_default_value(list(opt['style'].keys())[0])
+        kws[list(opt['style'].keys())[0]] = keywords[list(opt['style'].keys())[0]]
+    if opt['size'] is not None and list(opt['size'].keys())[0] not in keywords.keys():
+        keywords[list(opt['size'].keys())[0]] = get_default_value(list(opt['size'].keys())[0])
+        kws[list(opt['size'].keys())[0]] = keywords[list(opt['size'].keys())[0]]
+    if opt['cfl'] is not None:
+        for name in opt['cfl'].keys():
+            if name not in keywords.keys():
+                keywords[name] = get_default_value(name)
+                kws[name] = keywords[name]
+    return kws
+
+
+def get_all_data_loss_top1(opt):
     # list of source directories
     source_dir = ['{}{}_{}_{}'.format(opt['base'],opt['exp'],pair[0],pair[1]) for pair in list(itertools.product(opt['arch'], opt['datasets']))]
     d = []
@@ -108,30 +136,7 @@ def get_data_loss_top1(opt):
             fstr = '{' + f.split('{')[1].split('}')[0] + '}'
             keywords = json.loads(fstr)
             # default settings
-            kws = dict()
-            if 'arch' not in keywords.keys():
-                keywords['arch'] = 'resnet10'
-                kws['arch'] = keywords['arch']
-            if 'dataset' not in keywords.keys():
-                keywords['dataset'] = 'cifar10'
-                kws['dataset'] = keywords['dataset']
-            if 'use_train_clean' not in keywords.keys():
-                keywords['use_train_clean'] = False
-                kws['use_train_clean'] = keywords['use_train_clean']
-            if opt['hue'] is not None and list(opt['hue'].keys())[0] not in keywords.keys():
-                keywords[list(opt['hue'].keys())[0]] = get_default_value(list(opt['hue'].keys())[0])
-                kws[list(opt['hue'].keys())[0]] = keywords[list(opt['hue'].keys())[0]]
-            if opt['style'] is not None and list(opt['style'].keys())[0] not in keywords.keys():
-                keywords[list(opt['style'].keys())[0]] = get_default_value(list(opt['style'].keys())[0])
-                kws[list(opt['style'].keys())[0]] = keywords[list(opt['style'].keys())[0]]
-            if opt['size'] is not None and list(opt['size'].keys())[0] not in keywords.keys():
-                keywords[list(opt['size'].keys())[0]] = get_default_value(list(opt['size'].keys())[0])
-                kws[list(opt['size'].keys())[0]] = keywords[list(opt['size'].keys())[0]]
-            if opt['cfl'] is not None:
-                for name in opt['cfl'].keys():
-                    if name not in keywords.keys():
-                        keywords[name] = get_default_value(name)
-                        kws[name] = keywords[name]
+            kws = check_default(opt, keywords)
             # load data
             di = loadlog(f, kws=kws)
             d.append(di)
@@ -150,7 +155,7 @@ def get_data_loss_top1(opt):
     dfc = df.copy()
     dfc = dfc.filter(items=whitelist)
 
-    if dfc.use_train_clean.nunique()>1: 
+    if all(dfc.use_train_clean.unique()): 
         # we used train_clean
         df_train = dfc[dfc.train_clean==True]
     else:
@@ -163,7 +168,7 @@ def get_data_loss_top1(opt):
 
     return pd.concat([df_train, df_val])
 
-def get_data_counts(opt):
+def get_all_data_counts(opt):
     # list of source directories
     source_dir = ['{}{}_{}_{}'.format(opt['base'],opt['exp'],pair[0],pair[1]) for pair in list(itertools.product(opt['arch'], opt['datasets']))]
     d = []
@@ -181,22 +186,7 @@ def get_data_counts(opt):
             fstr = '{' + f.split('{')[1].split('}')[0] + '}'
             keywords = json.loads(fstr)
             # default settings
-            if 'arch' not in keywords.keys():
-                keywords['arch'] = 'resnet10'
-            if 'dataset' not in keywords.keys():
-                keywords['dataset'] = 'cifar10'
-            if 'use_train_clean' not in keywords.keys():
-                keywords['use_train_clean'] = False
-            if opt['hue'] is not None and list(opt['hue'].keys())[0] not in keywords.keys():
-                keywords[list(opt['hue'].keys())[0]] = get_default_value(list(opt['hue'].keys())[0])
-            if opt['style'] is not None and list(opt['style'].keys())[0] not in keywords.keys():
-                keywords[list(opt['style'].keys())[0]] = get_default_value(list(opt['style'].keys())[0])
-            if opt['size'] is not None and list(opt['size'].keys())[0] not in keywords.keys():
-                keywords[list(opt['size'].keys())[0]] = get_default_value(list(opt['size'].keys())[0])
-            if opt['cfl'] is not None:
-                for name in opt['cfl'].keys():
-                    if name not in keywords.keys():
-                        keywords[name] = get_default_value(name)
+            kws = check_default(opt, keywords)
             # load data
             train_labels = np.load('./train_labels_' + keywords['dataset'] + '.npy')
             num_classes = len(np.unique(train_labels))
@@ -250,7 +240,7 @@ def get_filename_clean(keys, values, opt):
         fn = fn[:-2]
     return fn
 
-def plot(opt):
+def compared_plot(opt):
     options = [opt[name] for name in ['hue','style','size'] if opt[name]]
     plot_opt = []
     for name in ['hue','style','size']:
@@ -259,7 +249,7 @@ def plot(opt):
         else:
             plot_opt.append(opt[name])
     # load data
-    df = get_data_loss_top1(opt)
+    df = get_all_data_loss_top1(opt)
     # filter by phase (train or val)
     df = df[df.phase==opt['phase']]
     # consider only specified values for opt['hue'], opt['size'], opt['size']
@@ -314,7 +304,7 @@ def plot(opt):
         plt.savefig(os.path.join(dir_, opt['plot'] + '_' + opt['phase'] + '__' + fn + '.pdf'), bbox_inches='tight', format='pdf')
         plt.close()
 
-def plot_train_val(opt):
+def compared_plot_train_val(opt):
     options = [opt[name] for name in ['hue','style','size'] if opt[name]]
     plot_opt = []
     for name in ['hue','style','size']:
@@ -323,7 +313,7 @@ def plot_train_val(opt):
         else:
             plot_opt.append(opt[name])
     # load data
-    df = get_data_loss_top1(opt)
+    df = get_all_data_loss_top1(opt)
     # consider only specified values for opt['hue'], opt['size'], opt['size']
     for option in options:
         key = list(option.keys())[0]
@@ -376,9 +366,9 @@ def plot_train_val(opt):
         plt.savefig(os.path.join(dir_, opt['plot'] + '_train_val__' + fn + '.pdf'), bbox_inches='tight', format='pdf')
         plt.close()
 
-def class_count_hist(opt):
+def compared_class_count_hist(opt):
     # load data
-    df, max_count, num_classes = get_data_counts(opt)
+    df, max_count, num_classes = get_all_data_counts(opt)
     # consider only specified values for opt['hue'], opt['size'], opt['size']
     if opt['hue'] is not None:
         key = list(opt['hue'].keys())[0]

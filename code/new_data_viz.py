@@ -52,11 +52,11 @@ if __name__ == '__main__' :
     # PLOTS
     if opt['plot'] in ['loss', 'top1']:
         if opt['phase'] in ['train','val']:
-            viz.plot(opt)
+            viz.compared_plot(opt)
         elif opt['phase'] == 'train_val':
-            viz.plot_train_val(opt)
+            viz.compared_plot_train_val(opt)
     elif opt['plot'] == 'class_count':
-        viz.class_count_hist(opt)
+        viz.compared_class_count_hist(opt)
     else:
         NotImplementedError
 
