@@ -140,7 +140,7 @@ def build_filename(ctx):
             if opt['dataset']['mode'] > 0:
                 dconf['mode'] = opt['dataset']['mode']
                 if opt['dataset']['mode_source'] != 'counter':
-                dconf['mode'] = opt['dataset']['mode']
+                dconf['mode_source'] = opt['dataset']['mode_source']
         else:
             dconf[k] = opt[k]
 
