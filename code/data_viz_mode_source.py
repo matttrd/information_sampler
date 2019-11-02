@@ -131,7 +131,7 @@ def plot_MD_exp():
         # fstr = '{' + f.split('{')[1].split('}')[0] + '}'
         # keywords = json.loads(fstr)
         keywords = get_params_from_log(f)
-        if 'pilot' not in keywords.keys():
+        if not keywords['pilot']:
             ex.append(f)
     
     for f in ex:
