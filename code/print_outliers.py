@@ -10,9 +10,9 @@ import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 
-# If CIFAR10
-CLASSES = ('plane', 'car', 'bird', 'cat',
-           'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
+# Other possible way to print images:
+# https://corochann.com/cifar-10-cifar-100-dataset-introduction-1258.html
+
 
 class MyDataset(Dataset):
     def __init__(self, data, source, train, download, transform):
@@ -85,17 +85,6 @@ def print_count_based_outliers(exp_path, less_counts=1, ith_image=[0]):
             print_spotted_outliers(exp_path, remaining_path, 'count_based_' + str(epoch) , less_counts=less_counts, size_plot=104)
             ith_image[0] += 1
 
-transform_train = transforms.Compose([
-    transforms.ToTensor(),
-    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
-
-transform_test = transforms.Compose([
-                        transforms.ToTensor(),
-                        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
-source =  '../data/'
-train_dataset = MyDataset('cifar10', source, train=True, download=True,
-                transform=transform_train)
-
 
 parser = argparse.ArgumentParser(description='check_masks',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -103,6 +92,50 @@ parser.add_argument('--sd', default=f'..{os.sep}results') #Note this is not used
 parser.add_argument('--exp', default=f'..{os.sep}results', required=True)
 parser.add_argument('--epochs', default=[0,59,119,159])
 opt = vars(parser.parse_args())
+
+dataset = opt['exp'].split('_')[-1]
+
+
+transform_train = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+
+source =  '../data/'
+
+if dataset == 'cifar10':
+    CLASSES = ('plane', 'car', 'bird', 'cat',
+               'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
+    transform_train = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+
+elif dataset == 'cifar100':
+    CLASSES = (
+    'apple', 'aquarium_fish', 'baby', 'bear', 'beaver', 'bed', 'bee', 'beetle',
+    'bicycle', 'bottle', 'bowl', 'boy', 'bridge', 'bus', 'butterfly', 'camel',
+    'can', 'castle', 'caterpillar', 'cattle', 'chair', 'chimpanzee', 'clock',
+    'cloud', 'cockroach', 'couch', 'crab', 'crocodile', 'cup', 'dinosaur',
+    'dolphin', 'elephant', 'flatfish', 'forest', 'fox', 'girl', 'hamster',
+    'house', 'kangaroo', 'keyboard', 'lamp', 'lawn_mower', 'leopard', 'lion',
+    'lizard', 'lobster', 'man', 'maple_tree', 'motorcycle', 'mountain', 'mouse',
+    'mushroom', 'oak_tree', 'orange', 'orchid', 'otter', 'palm_tree', 'pear',
+    'pickup_truck', 'pine_tree', 'plain', 'plate', 'poppy', 'porcupine',
+    'possum', 'rabbit', 'raccoon', 'ray', 'road', 'rocket', 'rose',
+    'sea', 'seal', 'shark', 'shrew', 'skunk', 'skyscraper', 'snail', 'snake',
+    'spider', 'squirrel', 'streetcar', 'sunflower', 'sweet_pepper', 'table',
+    'tank', 'telephone', 'television', 'tiger', 'tractor', 'train', 'trout',
+    'tulip', 'turtle', 'wardrobe', 'whale', 'willow_tree', 'wolf', 'woman',
+    'worm'
+    )
+    transform_train = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize([0.5071, 0.4867, 0.4408], [0.2675, 0.2565, 0.2761])])
+else:
+    raise NotImplementedError
+
+train_dataset = MyDataset(dataset, source, train=True, download=True,
+                transform=transform_train)
+
 
 exp_path = os.path.join(f'..{os.sep}results', opt['exp'])
 
