@@ -48,12 +48,10 @@ class MyDataset(Dataset):
             source = source + 'tiny-imagenet-200/'
             ddir = source + 'train/' if train else source+'val/'
             self.data = datasets.ImageFolder(ddir, transform=transform)
-        elif data == 'imagenet':
+        else:
             source = source + 'imagenet/'
             ddir = source + 'train/' if train else source+'val/'
             self.data = datasets.ImageFolder(ddir, transform=transform)
-        else:
-            print('Only CIFAR 10/100 allowed!')
 
     def __getitem__(self, index):
         data, target = self.data[index][0], self.data[index][1]
@@ -179,6 +177,9 @@ TEST_TRANSFORMS_224 = transforms.Compose([
         transforms.ToTensor(),
     ])
 
+cinic_mean = [0.47889522, 0.47227842, 0.43047404]
+cinic_std = [0.24205776, 0.23828046, 0.25874835]
+
 @data_ingredient.capture
 def load_data(name, source, shuffle, frac, perc, mode, \
         pilot_samp, pilot_arch, num_clusters, use_perc_diff, \
@@ -279,6 +280,18 @@ def load_data(name, source, shuffle, frac, perc, mode, \
     elif name == 'imagenet':
         transform_train = TRAIN_TRANSFORMS_224
         transform_test  = TEST_TRANSFORMS_224
+    
+    elif name == 'cinic':
+        transform_train = transforms.Compose([
+        transforms.RandomCrop(32, padding=4),
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=cinic_mean, std=cinic_std)
+
+        transform_test = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize(mean=cinic_mean, std=cinic_std)])])
+
     else:
         raise NotImplementedError
     
