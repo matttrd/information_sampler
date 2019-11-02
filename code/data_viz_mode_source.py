@@ -128,15 +128,17 @@ def plot_MD_exp():
     for f in expts:
         if f.split('/')[-3] == 'analysis_experiments':
                 continue
-        fstr = '{' + f.split('{')[1].split('}')[0] + '}'
-        keywords = json.loads(fstr)
+        # fstr = '{' + f.split('{')[1].split('}')[0] + '}'
+        # keywords = json.loads(fstr)
+        keywords = get_params_from_log(f)
         if 'pilot' not in keywords.keys():
             ex.append(f)
     
     for f in ex:
         #find it in the file name
-        fstr = '{' + f.split('{')[1].split('}')[0] + '}'
-        keywords = json.loads(fstr)
+        # fstr = '{' + f.split('{')[1].split('}')[0] + '}'
+        # keywords = json.loads(fstr)
+        keywords = get_params_from_log(f)
         
         if 'mode_source' not in keywords.keys():
             keywords['mode_source'] = 'counter'
