@@ -716,6 +716,6 @@ def main():
         pilots['f_events'] = {'sorted_idx': sfi.cpu().numpy(), 'sorted_w': sfv.cpu().numpy()}
         
         #pilot_fn = 'pilot_' + ctx.opt['dataset'] + '_' + ctx.opt['arch'] + '_' + ctx.opt['sampler']
-        fn = pilot_fn = '_'.join(('pilot_', ctx.opt['dataset'], ctx.opt['arch'], ctx.opt['sampler'], str(opt['temperature'])))
+        pilot_fn = '_'.join(('pilot_', ctx.opt['dataset'], ctx.opt['arch'], ctx.opt['sampler'], str(opt['temperature'])))
         with open(os.path.join(ctx.opt['o'], 'pilots', pilot_fn + '.pkl'), 'wb') as handle:
             pkl.dump(pilots, handle, protocol=pkl.HIGHEST_PROTOCOL)
