@@ -326,7 +326,8 @@ def load_data(name, source, shuffle, frac, perc, mode, \
         print('Dataset reduction of ', perc)
         if mode in [0, 1, 2]:
             # remove according to the input weights
-            fn = pilot_fn = 'pilot_' + name + '_' + pilot_arch + '_' + pilot_samp
+	    fn = pilot_fn = '_'.join(('pilot_', name, pilot_arch, pilot_samp, str(opt['temperature'])))
+            #fn = pilot_fn = 'pilot_' + name + '_' + pilot_arch + '_' + pilot_samp
             with open(os.path.join(opt['o'], 'pilots', fn + '.pkl'), 'rb') as f:
                 pilot = pkl.load(f)
             sd_idx = np.squeeze(pilot[mode_source]['sorted_idx'])
