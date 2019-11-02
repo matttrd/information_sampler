@@ -157,7 +157,6 @@ def plot_MD_exp():
     dfc = dfc.filter(items=whitelist)
     dv = dfc[(dfc['val'] == True)]
     dv = dv[dv['e'] == 179]
-    embed()
     plt.clf()
     ax_top1 = sns.lineplot(x='perc', y='top1', hue='mode_source', data=dv)
     bn = opt['base'].split('/')[-1]
