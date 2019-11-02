@@ -181,8 +181,8 @@ TEST_TRANSFORMS_224 = transforms.Compose([
 
 @data_ingredient.capture
 def load_data(name, source, shuffle, frac, perc, mode, \
-		pilot_samp, pilot_arch, num_clusters, use_perc_diff, \
-		celeba_class_attr, norm, mode_source, opt):
+        pilot_samp, pilot_arch, num_clusters, use_perc_diff, \
+        celeba_class_attr, norm, mode_source, opt):
 
     if name == 'cifar10':
         # CIFAR_MEAN = ch.tensor([0.4914, 0.4822, 0.4465])
@@ -326,7 +326,7 @@ def load_data(name, source, shuffle, frac, perc, mode, \
         print('Dataset reduction of ', perc)
         if mode in [0, 1, 2]:
             # remove according to the input weights
-	    fn = pilot_fn = '_'.join(('pilot_', name, pilot_arch, pilot_samp, str(opt['temperature'])))
+            fn = pilot_fn = '_'.join(('pilot_', name, pilot_arch, pilot_samp, str(opt['temperature'])))
             #fn = pilot_fn = 'pilot_' + name + '_' + pilot_arch + '_' + pilot_samp
             with open(os.path.join(opt['o'], 'pilots', fn + '.pkl'), 'rb') as f:
                 pilot = pkl.load(f)
