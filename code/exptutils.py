@@ -186,7 +186,7 @@ def build_filename(ctx):
     print(opt['filename'])
 
 def get_num_classes(opt):
-    d = dict(mnist=10, svhn=10, cifar10=10, cifar20=20,
+    d = dict(mnist=10, svhn=10, cifar10=10, cinic=10, cifar20=20,
             cifar100=100, imagenet32=1000, imagenet=1000, imagenet_lt=1000, 
             tinyimagenet64=200, halfmnist=10)
     d['cifar10.1']=10
@@ -195,7 +195,7 @@ def get_num_classes(opt):
     return d[opt['dataset']]
 
 def create_and_load_model(opt):
-    if 'cifar' in opt['dataset']:
+    if 'cifar' in opt['dataset'] or 'cinic' in opt['dataset']:
         import models.cifar_models as models
         model = getattr(models, opt['arch'])(num_classes=get_num_classes(opt))
     elif 'imagenet' in opt['dataset']:

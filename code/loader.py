@@ -48,11 +48,16 @@ class MyDataset(Dataset):
             source = source + 'tiny-imagenet-200/'
             ddir = source + 'train/' if train else source+'val/'
             self.data = datasets.ImageFolder(ddir, transform=transform)
-        else:
+        elif  data == 'imagenet':
             source = source + 'imagenet/'
             ddir = source + 'train/' if train else source+'val/'
             self.data = datasets.ImageFolder(ddir, transform=transform)
+        elif  data == 'cinic':
+            source = source + 'CINIC/'
+            ddir = source + 'train/' if train else source+'test/'
+            self.data = datasets.ImageFolder(ddir, transform=transform)
 
+            
     def __getitem__(self, index):
         data, target = self.data[index][0], self.data[index][1]
         return data, target, index
@@ -286,11 +291,11 @@ def load_data(name, source, shuffle, frac, perc, mode, \
         transforms.RandomCrop(32, padding=4),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
-        transforms.Normalize(mean=cinic_mean, std=cinic_std)
+        transforms.Normalize(mean=cinic_mean, std=cinic_std)])
 
         transform_test = transforms.Compose([
         transforms.ToTensor(),
-        transforms.Normalize(mean=cinic_mean, std=cinic_std)])])
+        transforms.Normalize(mean=cinic_mean, std=cinic_std)])
 
     else:
         raise NotImplementedError
@@ -313,7 +318,7 @@ def load_data(name, source, shuffle, frac, perc, mode, \
         test_dataset = LT_Dataset(root='/home/matteo/data/imagenet', 
                             txt='./data/ImageNet_LT/ImageNet_LT_test.txt', 
                             transform=transform_test)
-    elif name in ['imagenet', 'cifar10', 'cifar100', 'mnist', 'cifar10.1', 'tinyimagenet64']:
+    elif name in ['imagenet', 'cifar10', 'cinic','cifar100', 'mnist', 'cifar10.1', 'tinyimagenet64']:
         train_dataset = MyDataset(name, source, train=True, download=True,
                         transform=transform_train)    
         test_dataset = MyDataset(name, source, train=False, download=True,
