@@ -113,6 +113,7 @@ def cfg():
     exp = 'MD' # experiment ID
     save_w_dyn = False
     bce = False #binary xce
+    corr_labels = 0.
 best_top1 = 0
 
 # for some reason, the db must me created in the global scope
@@ -481,7 +482,7 @@ def main_worker(opt):
                         device_ids=range(opt['g'], opt['g'] + opt['ng']),
                         output_device=opt['g']).cuda()
 
-    classifier = torch.nn.Linear(model.linear.in_features, models.get_num_classes(opt)).cuda()
+    classifier = torch.nn.Linear(model.linear.in_features, get_num_classes(opt)).cuda()
     # define loss function (criterion) and optimizer
     if opt['bce']:
         criterion = nn.BCEWithLogitsLoss(reduction='none').cuda(opt['g'])
@@ -501,10 +502,10 @@ def main_worker(opt):
         if os.path.isfile(opt['resume']):
             print("=> loading checkpoint '{}'".format(opt['resume']))
             checkpoint = torch.load(opt['resume'])
-            opt['start_epoch'] = checkpoint['epoch']
+            #opt['start_epoch'] = checkpoint['epoch']
             best_top1 = checkpoint['best_top1']
             model.load_state_dict(checkpoint['state_dict'])
-            optimizer.load_state_dict(checkpoint['optimizer'])
+            #optimizer.load_state_dict(checkpoint['optimizer'])
             print("=> loaded checkpoint '{}' (epoch {})"
                   .format(opt['resume'], checkpoint['epoch']))
         else:
@@ -513,7 +514,7 @@ def main_worker(opt):
     cudnn.benchmark = True
 
     # Data loading code
-    train_loader, val_loader, weights_loader = load_data(opt=opt)
+    train_loader, clean_train_loader, val_loader, weights_loader, train_length = load_data(opt=opt)
     ctx.train_loader = train_loader
     #ctx.counter = 1
     complete_outputs = torch.ones(get_dataset_len(opt['dataset'])).cuda(opt['g'])
