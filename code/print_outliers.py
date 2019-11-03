@@ -87,7 +87,7 @@ def print_spotted_outliers(run_path, remaining_path, exp_type, less_counts=1, si
 
 
 def print_count_based_outliers(exp_path, less_counts=1, ith_image=[0]):
-    if run_path.split(f'{os.sep}')[-1] == 'analysis_experiments':
+    if exp_path.split(f'{os.sep}')[-1] == 'analysis_experiments':
         return # This folder is not a run!!!
     for file in os.listdir(os.path.join(exp_path, 'sample_counts')):
         epoch = int(file.split('_')[-1].split('.')[0])
