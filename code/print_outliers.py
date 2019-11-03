@@ -87,6 +87,8 @@ def print_spotted_outliers(run_path, remaining_path, exp_type, less_counts=1, si
 
 
 def print_count_based_outliers(exp_path, less_counts=1, ith_image=[0]):
+    if run_path.split(f'{os.sep}')[-1] == 'analysis_experiments':
+        break # This folder is not a run!!!
     for file in os.listdir(os.path.join(exp_path, 'sample_counts')):
         epoch = int(file.split('_')[-1].split('.')[0])
         remaining_path = os.path.join('sample_counts', file)
@@ -99,6 +101,8 @@ from analyze_forgetting_stats import compute_forgetting_statistics, sort_example
 from count_visualization import get_params_from_log, kde_sklearn
 def print_forgetting_based_outliers(run_path, less_counts=1, size_plot=104):
     # embed()
+    if run_path.split(f'{os.sep}')[-1] == 'analysis_experiments':
+        break # This folder is not a run!!!
     f = open(os.path.join(run_path, 'forgetting_stats', 'stats.pkl'), 'rb')
     loaded = pkl.load(f)
     # Compute the forgetting statistics per example for training run
