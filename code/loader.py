@@ -254,7 +254,7 @@ def load_data(name, source, shuffle, frac, perc, mode, \
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)) if norm else
                  transforms.Normalize((0, 0, 0), (1, 1, 1))
         ])
-    elif name == 'imagenet_lt':
+    elif name == 'imagenet_lt' or name=='places_lt':
         transform_train = transforms.Compose([
             transforms.RandomResizedCrop(224),
             transforms.RandomHorizontalFlip(),
@@ -268,6 +268,7 @@ def load_data(name, source, shuffle, frac, perc, mode, \
             transforms.ToTensor(),
             transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
         ])
+
     elif name == 'celeba':
         transform_train = transforms.Compose([
             transforms.CenterCrop(178),
@@ -318,6 +319,14 @@ def load_data(name, source, shuffle, frac, perc, mode, \
         test_dataset = LT_Dataset(root='/home/matteo/data/imagenet', 
                             txt='./data/ImageNet_LT/ImageNet_LT_test.txt', 
                             transform=transform_test)
+    elif name == 'places_lt':
+        train_dataset = LT_Dataset(root='/home/matteo/data/imagenet', 
+                            txt='./data/Places_LT/Places_LT_train.txt', 
+                            transform=transform_train)
+        test_dataset = LT_Dataset(root='/home/matteo/data/imagenet', 
+                            txt='./data/Places_LT/Places_LT_test.txt', 
+                            transform=transform_test)
+
     elif name in ['imagenet', 'cifar10', 'cinic','cifar100', 'mnist', 'cifar10.1', 'tinyimagenet64']:
         train_dataset = MyDataset(name, source, train=True, download=True,
                         transform=transform_train)    
