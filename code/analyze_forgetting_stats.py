@@ -16,12 +16,12 @@ def compute_forgetting_statistics(stats, npresentations):
         presentation_acc = np.array(example_stats['acc'][:npresentations])
         transitions = presentation_acc[1:] - presentation_acc[:-1]
 
-        embed()
+        # embed()
 
         # Find all presentations when forgetting occurs
         if len(np.where(transitions == -1)[0]) > 0:
             unlearned_per_presentation[example_id] = np.where(
-                transitions == -1)[0] + 2
+                transitions == -1)[0] + 1
         else:
             unlearned_per_presentation[example_id] = []
 
@@ -29,7 +29,7 @@ def compute_forgetting_statistics(stats, npresentations):
         # e.g. last presentation when acc is 0
         if len(np.where(presentation_acc == 0)[0]) > 0:
             presentations_needed_to_learn[example_id] = np.where(
-                presentation_acc == 0)[0][-1] + 1
+                presentation_acc == 0)[0][-1] + 1 #index of the last 0 in the acc list +1 (zero means never learnt)
         else:
             presentations_needed_to_learn[example_id] = 0
 
@@ -58,9 +58,6 @@ def compute_forgetting_statistics(stats, npresentations):
 #
 def sort_examples_by_forgetting(unlearned_per_presentation_all,
                                 first_learned_all, npresentations):
-
-    # embed()
-
     # Initialize lists
     example_original_order = []
     example_stats = []
@@ -89,24 +86,19 @@ def sort_examples_by_forgetting(unlearned_per_presentation_all,
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Options")
-    # parser.add_argument('--input_dir', type=str, required=True)
-    # parser.add_argument('--output_dir', type=str, required=True)
-    # parser.add_argument(
-    #     '--output_name',
-    #     type=str,
-    #     required=True)
+    parser.add_argument('--exp', default=f'..{os.sep}results', required=True)
     parser.add_argument('--epochs', type=int, default=200)
     args = parser.parse_args()
 
 
-    exp = 'CVPR_sampler_resnet18_cifar100'
-    run = '(ott_30_14_21_24)_opt_{"arch":"resnet18","dataset":"cifar100","exp":"CVPR_sampler","normalizer":true,"sampler":"invtunnel","temperature":0.1}'
-    path = os.path.join(f'..{os.sep}results', exp, run, 'forgetting_stats')
+    exp_path = os.path.join(f'..{os.sep}results', args.exp)
+    for run in os.listdir(exp_path):
+        run_path =  os.path.join(exp_path, run, 'forgetting_stats')
 
-    with open(os.path.join(path, 'stats.pkl'), 'rb') as fin:
+    with open(os.path.join(run_path, 'stats.pkl'), 'rb') as fin:
         loaded = pkl.load(fin)
 
-    embed()
+    # embed()
 
     # Compute the forgetting statistics per example for training run
     _, unlearned_per_presentation, _, first_learned = compute_forgetting_statistics(
@@ -115,6 +107,8 @@ if __name__ == "__main__":
     # embed()
 
     # Sort examples by forgetting counts in ascending order, over one or more training runs
+    # orderred_examples are the indeces of the dataset ordered
+    # ordered_values are the number of forgetting events
     ordered_examples, ordered_values = sort_examples_by_forgetting(
         unlearned_per_presentation, first_learned, args.epochs)
 
