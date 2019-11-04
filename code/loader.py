@@ -72,7 +72,7 @@ def corrupt_labels(train_labels, corrupt_prob, num_classes):
     #mask = np.random.rand(len(labels)) <= corrupt_prob
     #rnd_labels = np.random.choice(num_classes, mask.sum())
     rnd_labels = np.random.choice(num_classes, int(len(train_labels) * corrupt_prob))
-    indices = np.random.choice(np.arange(len(labels)), int(len(train_labels) * corrupt_prob))
+    indices = np.random.choice(np.arange(len(labels)), int(len(train_labels) * corrupt_prob), replace=False)
     #labels[mask] = rnd_labels
     #labels = [int(x) for x in labels]
     for i, idx in enumerate(indices):
