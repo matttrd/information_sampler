@@ -97,6 +97,122 @@ class ResNet(nn.Module):
         out = self.linear(out)
         return out, feats
 
+
+class wideresnet(nn.Module):
+    name = 'wideresnet'
+
+    def __init__(self, opt, num_classes):
+        super(wideresnet, self).__init__()
+
+        opt['depth'] = opt.get('depth', 28)
+        opt['widen'] = opt.get('widen', 10)
+
+        d, depth, widen = 0., opt['depth'], opt['widen']
+
+        nc = [16, 16*widen, 32*widen, 64*widen]
+        assert (depth-4)%6 == 0, 'Incorrect depth'
+        n = (depth-4)//6
+
+        bn1, bn2 = nn.BatchNorm1d, nn.BatchNorm2d
+
+        def block(ci, co, s, p=0.):
+            h = nn.Sequential(
+                    bn2(ci,track_running_stats=track_running_stats),
+                    nn.ReLU(inplace=True),
+                    nn.Conv2d(ci, co, kernel_size=3, stride=s, padding=1, bias=False),
+                    bn2(co,track_running_stats=track_running_stats),
+                    nn.ReLU(inplace=True),
+                    nn.Dropout(p),
+                    nn.Conv2d(co, co, kernel_size=3, stride=1, padding=1, bias=False))
+            if ci == co:
+                return caddtable_t(h, nn.Sequential())
+            else:
+                return caddtable_t(h,
+                            nn.Conv2d(ci, co, kernel_size=1, stride=s, padding=0, bias=False))
+
+        def netblock(nl, ci, co, blk, s, p=0.):
+            ls = [blk((i==0 and ci or co), co, (i==0 and s or 1), p) for i in range(nl)]
+            return nn.Sequential(*ls)
+
+        self.m = nn.Sequential(
+                nn.Conv2d(3, nc[0], kernel_size=3, stride=1, padding=1, bias=False),
+                netblock(n, nc[0], nc[1], block, 1, d),
+                netblock(n, nc[1], nc[2], block, 2, d),
+                netblock(n, nc[2], nc[3], block, 2, d),
+                bn2(nc[3],track_running_stats=track_running_stats),
+                nn.ReLU(inplace=True),
+                nn.AvgPool2d(8),
+                View(nc[3]),
+                nn.Linear(nc[3], num_classes))
+
+        for m in self.m.modules():
+            if isinstance(m, nn.Conv2d):
+                n = m.kernel_size[0]*m.kernel_size[1]*m.out_channels
+                m.weight.data.normal_(0, math.sqrt(2./n))
+            elif isinstance(m, nn.BatchNorm2d):
+                m.weight.data.fill_(1)
+                m.bias.data.zero_()
+            elif isinstance(m, nn.Linear):
+                #m.weight.data.normal_(0, math.sqrt(2./m.in_features))
+                m.bias.data.zero_()
+
+        self.N = num_parameters(self.m)
+        # s = '[%s] Num parameters: %d'%(self.name, self.N)
+        # # print(s)
+        # logging.info(s)
+
+    def forward(self, x):
+        return self.m(x)
+
+opt = dict()
+
+class WRN101(wideresnet):
+    name ='WRN101'
+    def __init__(self, num_classes=10):
+        opt['depth'], opt['widen'] = 10,1
+        super(WRN101, self).__init__(opt, num_classes=num_classes)
+
+class WRN521(wideresnet):
+    name ='WRN521'
+    def __init__(self, num_classes=10):
+        opt['depth'], opt['widen'] = 52,1
+        super(WRN521, self).__init__(opt, num_classes=num_classes)
+
+class WRN164(wideresnet):
+    name ='WRN164'
+    def __init__(self, num_classes=10):
+        opt['depth'], opt['widen'] = 16,4
+        super(WRN164, self).__init__(opt, num_classes=num_classes)
+
+class WRN168(wideresnet):
+    name ='WRN168'
+    def __init__(self, num_classes=10):
+        opt['depth'], opt['widen'] = 16,8
+        super(WRN168, self).__init__(opt, num_classes=num_classes)
+
+class WRN2810(wideresnet):
+    name ='WRN2810'
+    def __init__(self, num_classes=10):
+        opt['depth'], opt['widen'] = 28, 10
+        super(WRN2810, self).__init__(opt, num_classes=num_classes)
+
+class WRN2812(wideresnet):
+    name ='WRN2812'
+    def __init__(self, num_classes=10):
+        opt['depth'], opt['widen'] = 28, 12
+        super(WRN2812, self).__init__(opt, num_classes=num_classes)
+
+class WRN4010(wideresnet):
+    name ='WRN4010'
+    def __init__(self, num_classes=10):
+        opt['depth'], opt['widen'] = 40, 10
+        super(WRN4010, self).__init__(opt, num_classes=num_classes)
+
+
+def wrn2810(num_classes=10):
+    return WRN2810(num_classes)
+    
+
 def resnet10(num_classes=10):
     return ResNet(BasicBlock, [1,1,1,1], num_classes=num_classes)
 
