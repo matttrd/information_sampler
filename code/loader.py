@@ -489,7 +489,7 @@ def load_data(name, source, shuffle, frac, perc, mode, \
         train_dataset, batch_size=min(opt['b']*5, 1024), shuffle=False, num_workers=opt['j'], pin_memory=True)
 
     test_loader = torch.utils.data.DataLoader(
-        test_dataset, batch_size=opt['b'], shuffle=False, num_workers=opt['j'], pin_memory=True)
+        test_dataset, batch_size=opt['b'], shuffle=False, num_workers=opt['j'], pin_memory=False)
 
     return train_loader, clean_train_loader, test_loader, weights_loader, train_length
 
