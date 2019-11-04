@@ -117,10 +117,10 @@ class wideresnet(nn.Module):
 
         def block(ci, co, s, p=0.):
             h = nn.Sequential(
-                    bn2(ci,track_running_stats=track_running_stats),
+                    bn2(ci),
                     nn.ReLU(inplace=True),
                     nn.Conv2d(ci, co, kernel_size=3, stride=s, padding=1, bias=False),
-                    bn2(co,track_running_stats=track_running_stats),
+                    bn2(co),
                     nn.ReLU(inplace=True),
                     nn.Dropout(p),
                     nn.Conv2d(co, co, kernel_size=3, stride=1, padding=1, bias=False))
@@ -139,7 +139,7 @@ class wideresnet(nn.Module):
                 netblock(n, nc[0], nc[1], block, 1, d),
                 netblock(n, nc[1], nc[2], block, 2, d),
                 netblock(n, nc[2], nc[3], block, 2, d),
-                bn2(nc[3],track_running_stats=track_running_stats),
+                bn2(nc[3]),
                 nn.ReLU(inplace=True),
                 nn.AvgPool2d(8),
                 View(nc[3]),
@@ -211,7 +211,7 @@ class WRN4010(wideresnet):
 
 def wrn2810(num_classes=10):
     return WRN2810(num_classes)
-    
+
 
 def resnet10(num_classes=10):
     return ResNet(BasicBlock, [1,1,1,1], num_classes=num_classes)
