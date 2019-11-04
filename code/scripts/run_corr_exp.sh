@@ -1,1 +1,1 @@
-python hyperoptim.py -c "python main_CVPR.py with save=True j=10 dataset.name='cifar10' exp='CVPR_label_corr' tfl=True" -p '{"sampler":["tunnel","invtunnel"],"b":[128,256,512], "temperature":[0.1,1], "arch":["resnet18"],"normalizer":["True"],"corr_labels":[0.1,0.2,0.3]}' --gpus '[0,1]' -j 4 -r
+python hyperoptim.py -c "python main_CVPR.py with save=True j=10 dataset.name='cifar10' exp='CVPR_corr_labels' tfl=True" -p '{"sampler":["invtunnel"],"b":[128], "temperature":[10.0,1000.0], "arch":["resnet18"],"normalizer":["True"],"corr_labels":[0.1,0.2,0.3]}' --gpus '[0,1]' -j 4 -r
