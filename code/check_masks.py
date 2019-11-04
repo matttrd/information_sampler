@@ -168,7 +168,7 @@ for run, IS_counts in enumerate(list_IS_counts):
                     p_sampled.append(value)
 
                 plt.plot(p_count, p_sampled, label=epoch + ' ' + str(run))
-plt.legend()
+plt.legend(), plt.grid()
 save_path = os.path.join(exp_path, 'analysis_experiments')
 os.makedirs(save_path, exist_ok=True)
 plt.savefig(os.path.join(save_path, f'comparison_runs_noisy_distr.pdf'), dpi=2560, bbox_inches='tight')
