@@ -8,8 +8,8 @@ Now you have inside the "analysis_experiments" folder (which is inside [the_exp_
 
 
 
-## How to print class count histograms:
-* python new_data_viz.py --exp [the_exp_you_want_to_print] --base [source directory] --sd [save directory] --plot 'class_count' --arch [architectures you want to consider] --datasets [datasets you want to consider] --hue [plot level comparison] --cfl [file level comparison] --epochs [epochs you want to consider]
+## How to print compared class count histograms:
+* python compared_data_viz.py --exp [the_exp_you_want_to_print] --base [source directory] --sd [save directory] --plot 'class_count' --arch [architectures you want to consider] --datasets [datasets you want to consider] --hue [plot level comparison] --cfl [file level comparison] --epochs [epochs you want to consider]
 
 Examples:
 --hue '{"temperature":"all"}'						-->		one bar for each value of the "temperature" keyword
