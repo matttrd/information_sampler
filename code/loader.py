@@ -76,7 +76,9 @@ def corrupt_labels(train_labels, corrupt_prob, num_classes):
     #labels[mask] = rnd_labels
     #labels = [int(x) for x in labels]
     for i, idx in enumerate(indices):
-        labels[idx] = rnd_labels[i]
+        while labels[idx] == rnd_labels[i]:
+            rnd_labels[i] = np.random.choice(num_classes, 1)
+        labels[idx] == rnd_labels[i]
     return labels, indices
     #return labels, mask
 
