@@ -9,6 +9,8 @@ Reference:
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import math
+th = torch
 
 
 class BasicBlock(nn.Module):
@@ -97,6 +99,22 @@ class ResNet(nn.Module):
         out = self.linear(out)
         return out, feats
 
+class View(nn.Module):
+    def __init__(self,o):
+        super().__init__()
+        self.o = o
+
+    def forward(self,x):
+        return x.view(-1, self.o)
+
+class caddtable_t(nn.Module):
+    def __init__(self, m1, m2):
+        super(caddtable_t, self).__init__()
+        self.m1, self.m2 = m1, m2
+
+    def forward(self, x):
+        return th.add(self.m1(x), self.m2(x))
+
 
 class wideresnet(nn.Module):
     name = 'wideresnet'
@@ -142,8 +160,10 @@ class wideresnet(nn.Module):
                 bn2(nc[3]),
                 nn.ReLU(inplace=True),
                 nn.AvgPool2d(8),
-                View(nc[3]),
-                nn.Linear(nc[3], num_classes))
+                View(nc[3]))
+
+        self.linear = nn.Linear(nc[3], num_classes)
+                
 
         for m in self.m.modules():
             if isinstance(m, nn.Conv2d):
@@ -156,13 +176,9 @@ class wideresnet(nn.Module):
                 #m.weight.data.normal_(0, math.sqrt(2./m.in_features))
                 m.bias.data.zero_()
 
-        self.N = num_parameters(self.m)
-        # s = '[%s] Num parameters: %d'%(self.name, self.N)
-        # # print(s)
-        # logging.info(s)
-
     def forward(self, x):
-        return self.m(x)
+        feats = self.m(x)
+        return self.linear(feats), feats
 
 opt = dict()
 
