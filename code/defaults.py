@@ -41,7 +41,7 @@ TRAINING_DEFAULTS = {
         "epochs": 150,
         "b": 256,
         "save_epochs" : SAVE_EPOCHS,
-        "wd": 1e-4,
+        "wd": 5e-4,
          "lrs": '[[0,0.1],[50,0.01],[100,0.001]]'
     }
 }
