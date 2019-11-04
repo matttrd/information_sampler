@@ -320,10 +320,10 @@ def load_data(name, source, shuffle, frac, perc, mode, \
                             txt='./data/ImageNet_LT/ImageNet_LT_test.txt', 
                             transform=transform_test)
     elif name == 'places_lt':
-        train_dataset = LT_Dataset(root='/home/matteo/data/imagenet', 
+        train_dataset = LT_Dataset(root='/home/matteo/data/places365_standard', 
                             txt='./data/Places_LT/Places_LT_train.txt', 
                             transform=transform_train)
-        test_dataset = LT_Dataset(root='/home/matteo/data/imagenet', 
+        test_dataset = LT_Dataset(root='/home/matteo/data/places365_standard', 
                             txt='./data/Places_LT/Places_LT_test.txt', 
                             transform=transform_test)
 
