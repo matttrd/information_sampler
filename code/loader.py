@@ -18,6 +18,7 @@ from tqdm import tqdm
 #from libKMCUDA import kmeans_cuda
 from utils import *
 from exptutils import logical_index
+from IPython import embed
 
 data_ingredient = Ingredient('dataset')
 
@@ -78,7 +79,7 @@ def corrupt_labels(train_labels, corrupt_prob, num_classes):
     for i, idx in enumerate(indices):
         while labels[idx] == rnd_labels[i]:
             rnd_labels[i] = np.random.choice(num_classes, 1)
-        labels[idx] == rnd_labels[i]
+        labels[idx] = rnd_labels[i]
     return labels, indices
     #return labels, mask
 
