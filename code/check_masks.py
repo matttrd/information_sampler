@@ -105,7 +105,7 @@ def print_perc(save_path, info, IS_counts, corr_indeces):
 def print_hist(save_path, info, IS_counts, corr_indeces):
     os.makedirs(save_path, exist_ok=True)
     epoch_filer = [0, 61, 121, 179]
-    title = info['sampler'] + '_' + 'Temp' + '_' + str(info['temperature']).replace('.', '_') + '_' + 'norm_' + str(info['norm'])
+    title = info['sampler'] + '_' + 'Temp' + '_' + str(info['temperature']).replace('.', '_') + '_' + 'norm_' + str(info['normalizer'])
     fig, axs = plt.subplots(1, len(epoch_filer))
     fig.set_size_inches(18.5, 10.5)
     for epoch in IS_counts.keys():
@@ -113,8 +113,8 @@ def print_hist(save_path, info, IS_counts, corr_indeces):
             i = int(np.where(epoch_filer == np.array(int(epoch)))[0])
             counts_removed_corr = np.delete(IS_counts[epoch], corr_indeces)
             counts_corr = IS_counts[epoch][corr_indeces]
-            axs[i].hist(counts_removed_corr, label='Plain labels')
-            axs[i].hist(counts_corr, label='Corrupted labels')
+            axs[i].hist(counts_removed_corr, alpha=0.5, label='Plain labels')
+            axs[i].hist(counts_corr, alpha=0.5, label='Corrupted labels')
             axs[i].set_title('Epoch ' + epoch)
             # plt.legend()
             plt.grid()
