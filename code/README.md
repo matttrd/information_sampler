@@ -6,6 +6,11 @@
 
 Now you have inside the "analysis_experiments" folder (which is inside [the_exp_you_want_to_organize]) all the experiments numbered (accordingly to date) and containing all the pdf and log you need!
 
+Now you can print everything together! Try to use:
+
+sudo python3 print_zanca.py --exp CVPR_corr_labels_resnet18_cifar100 --replace True --gpu 1 --bs 512
+
+Notes: change --exp, --bs is used to compute gradients (the size of minibatches determines the number of gradients that will be used to compute the cosine angles), --gpu is used to perform multiple printing on different gpu (due to the one epoch time + memory requirement) 
 
 
 ## How to print compared class count histograms:
