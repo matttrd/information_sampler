@@ -25,10 +25,10 @@ if 'corr' in opt['exp']:
     os.system(f'python3 check_masks.py --exp ' + opt['exp'])
 
 # Plots performed only if necessary or if required
-if not is_folder_present('analysis_exctracted_images') or opt['replace']:
+if not is_folder_present('analysis_exctracted_images') or bool(opt['replace']):
     os.system(f'python3 print_outliers.py --exp ' + opt['exp'])
 
-if not is_folder_present('gradients_stats') or opt['replace']:
+if not is_folder_present('gradients_stats') or bool(opt['replace']):
     os.system(f'python3 computing_gradients_stats_experiment.py --exp ' + opt['exp'])
 
 os.system(f'python3 print_gradients.py --exp ' + opt['exp'])
