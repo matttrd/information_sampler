@@ -13,10 +13,23 @@ def is_folder_present(checking_fodler):
     return found
 
 
+def str2bool(v):
+    if isinstance(v, bool):
+       return v
+    if v.lower() in ('yes', 'true', 'True', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'False', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
+
 parser = argparse.ArgumentParser(description='count_visualization',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('--exp', default=f'..{os.sep}results', required=True)
-parser.add_argument('--replace', default=False, required=True)
+parser.add_argument("--replace", type=str2bool, nargs='?',
+                        const=True, default=False,
+                        required=True
+                        help="Replace all images?")
 opt = vars(parser.parse_args())
 
 # Plots that are performed regardless your decision
@@ -25,10 +38,10 @@ if 'corr' in opt['exp']:
     os.system(f'python3 check_masks.py --exp ' + opt['exp'])
 
 # Plots performed only if necessary or if required
-if not is_folder_present('analysis_exctracted_images') or bool(opt['replace']):
+if not is_folder_present('analysis_exctracted_images') or opt['replace']:
     os.system(f'python3 print_outliers.py --exp ' + opt['exp'])
 
-if not is_folder_present('gradients_stats') or bool(opt['replace']):
+if not is_folder_present('gradients_stats') or opt['replace']:
     os.system(f'python3 computing_gradients_stats_experiment.py --exp ' + opt['exp'])
 
 os.system(f'python3 print_gradients.py --exp ' + opt['exp'])
