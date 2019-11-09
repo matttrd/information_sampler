@@ -9,7 +9,7 @@ parser.add_argument('--bs', default=128, type=int, required=True)
 parser.add_argument('--gpu', default=0, type=int, help='id(s) for CUDA_VISIBLE_DEVICES')
 opt = vars(parser.parse_args())
 
-print(f'You can choose the batch size for the gradients histograms!!! Now you have BS = {opt['bs']}')
+print(f"You can choose the batch size for the gradients histograms!!! Now you have BS = {opt['bs']}"")
 
 if 'cifar10' in opt['exp']:
     dataset = 'cifar10'
