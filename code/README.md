@@ -10,7 +10,11 @@ Now you can print everything together! Try to use:
 
 sudo python3 print_zanca.py --exp CVPR_corr_labels_resnet18_cifar100 --replace True --gpu 1 --bs 512
 
-Notes: change --exp, --bs is used to compute gradients (the size of minibatches determines the number of gradients that will be used to compute the cosine angles), --gpu is used to perform multiple printing on different gpu (due to the one epoch time + memory requirement) 
+Notes: 
+change --exp with the one you need , 
+--replace is used to avoid wasting time on time consuming plots
+--bs is used to compute gradients (the size of minibatches determines the number of gradients that will be used to compute the cosine angles), 
+--gpu is used to perform multiple printing on different gpu (due to the one epoch time + memory requirement) 
 
 
 ## How to print compared class count histograms:
