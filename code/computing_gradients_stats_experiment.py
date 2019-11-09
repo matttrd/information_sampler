@@ -27,7 +27,7 @@ else:
 
 experiment = opt['exp'].split(f'_{arch}')[0]
 
-command = f"python3 computing_gradients_stats.py with dataset.name='{dataset}' arch='{arch}' exp='{experiment} g={opt['gpu']}'"
+command = f"python3 computing_gradients_stats.py with dataset.name='{dataset}' arch='{arch}' exp={experiment} g={opt['gpu']}"
 
 exp_path = os.path.join('..', 'results', opt['exp'])
 for run in os.listdir(exp_path):
