@@ -35,26 +35,26 @@ parser.add_argument('--gpu', default=0, type=int, help='id(s) for CUDA_VISIBLE_D
 opt = vars(parser.parse_args())
 
 # Plots that are performed regardless your decision
-os.system(f'python3 count_visualization.py --exp {opt['exp']}')
+os.system(f"python3 count_visualization.py --exp {opt['exp']}")
 if 'corr' in opt['exp']:
-    os.system(f'python3 check_masks.py --exp {opt['exp']}')
+    os.system(f"python3 check_masks.py --exp {opt['exp']}")
 
 # Plots performed only if necessary or if required
 if not is_folder_present('analysis_exctracted_images') or opt['replace']:
-    os.system(f'python3 print_outliers.py --exp {opt['exp']}')
+    os.system(f"python3 print_outliers.py --exp {opt['exp']}")
 
 if not is_folder_present('gradients_stats') or opt['replace']:
-    os.system(f'python3 computing_gradients_stats_experiment.py --exp {opt['exp']} --bs {opt['bs']} --gpu {opt['gpu']}')
+    os.system(f"python3 computing_gradients_stats_experiment.py --exp {opt['exp']} --bs {opt['bs']} --gpu {opt['gpu']}")
 
-os.system(f'python3 print_gradients.py --exp {opt['exp']}')
+os.system(f"python3 print_gradients.py --exp {opt['exp']}")
 
 #Plotting train and validaiton losses
 global_path = os.getcwd()
 global_path = global_path[:-4] + 'results'
 global_path = os.path.join(global_path, opt['exp'])
 
-os.system(f'python3 single_data_viz.py  --exp_dir  {global_path} --plot loss')
-os.system(f'python3 single_data_viz.py  --exp_dir  {global_path} --plot top1')
+os.system(f"python3 single_data_viz.py  --exp_dir  {global_path} --plot loss")
+os.system(f"python3 single_data_viz.py  --exp_dir  {global_path} --plot top1")
 
 
-os.system(f'python3 organize_experiment_analysis.py --exp {opt['exp']}')
+os.system(f"python3 organize_experiment_analysis.py --exp {opt['exp']}")
