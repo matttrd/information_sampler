@@ -89,14 +89,15 @@ for run in runs.keys():
                 else:
                     axs[z][k].hist(cosine_directors, alpha=0.5, bins=bins, label=sampler)
                     axs[z][k].set_title(f"Bs {bs} Epoch {string_splitter(epoch_model, 'model').split('.')[0]} ")
-                    plt.grid()
+                    axs[z][k].grid()
+                    axs[z][k].legend()
         z += 1
-        plt.legend()
     fig.suptitle(title, fontsize=30), plt.tight_layout()
     saving_path = os.path.join(exp_path, run, 'analysis')
     os.makedirs(saving_path, exist_ok=True)
     plt.savefig(os.path.join(saving_path, f'gradients_hists_{title}.pdf'), dpi=2560, bbox_inches='tight')
     plt.close()
+    # plt.show()
 
 # Comparing cosines angles at differnt epochs
 for run in runs.keys():
