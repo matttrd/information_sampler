@@ -179,11 +179,12 @@ for runs in os.listdir(exp_path):
         epoch = file.split('_')[-1].split('.')[0]
         f = open(counts_path, 'rb')
         IS_counts[epoch] = pkl.load(f)
-        len_ = len(corr_indeces[i])
+        corr_ind_set = set(corr_indeces[i])
+        len_ = len(corr_ind_set)
         sorted_indices = np.argsort(IS_counts[epoch])
-        predicted_outliers = sorted_indices[-int(len_):]
-        assert len(set(predicted_outliers)) == len(set(corr_indeces[i]))
-        perc_spotted_outliers = len(set(predicted_outliers) - set(corr_indeces[i])) / len(set(corr_indeces[i]))
+        predicted_outliers = sorted_indices[-len_:]
+        assert len(set(predicted_outliers)) == len(corr_ind_set)
+        perc_spotted_outliers = len(set(predicted_outliers) - corr_ind_set) / len(corr_ind_set)
     
         if perc_spotted_outliers > best:
             best = perc_spotted_outliers
@@ -238,10 +239,11 @@ def forg_stats_based_spotted_outliers(run_path, corr_indeces, corr_perc):
 
         ordered_examples, ordered_values = sort_examples_by_forgetting(
                 unlearned_per_presentation, first_learned, 200)
-        len_ = len(ordered_examples)
-        predicted_outliers = ordered_examples[-int(corr_perc * len_):]
-        assert len(set(predicted_outliers)) == len(set(corr_indeces[i]))
-        perc_spotted_outliers = len(set(predicted_outliers) - set(corr_indeces)) / len(set(corr_indeces))
+        corr_ind_set = set(corr_indeces)
+        len_ = len(corr_ind_set)
+        predicted_outliers = ordered_examples[-len_:]
+        assert len(set(predicted_outliers)) == len(corr_ind_set)
+        perc_spotted_outliers = len(set(predicted_outliers) - corr_ind_set) / len(corr_ind_set)
         return perc_spotted_outliers
     except FileNotFoundError:
         return None
