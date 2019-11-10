@@ -518,12 +518,14 @@ def adjust_learning_rate(epoch):
         ctx.ex.logger.info('[%s] '%'lr' + json.dumps({'%s'%'lr': lr}))
 
 def adjust_temperature(epoch, opt):
-    if len(opt['temperatures']) > 0:
-        temps = opt['temperatures']
-        initial_temp = temps[0]
-        final_temp = temps[1]
-        ratio = (epoch / opt['epochs']) ** 0.5
-        ctx.opt['temperature'] = final_temp * ratio + initial_temp * (1 - ratio)
+    # if len(opt['temperatures']) > 0:
+    #     temps = opt['temperatures']
+    #     initial_temp = temps[0]
+    #     final_temp = temps[1]
+    #     ratio = (epoch / opt['epochs']) ** 0.5
+    #     ctx.opt['temperature'] = final_temp * ratio + initial_temp * (1 - ratio)
+    if opt['temperatures'] != '':
+    	opt['temperature'] = schedule(ctx, k='temperature')
     return
 
 
@@ -609,7 +611,6 @@ def main_worker(opt):
         if not opt['adam']:
             adjust_learning_rate(epoch)
         adjust_temperature(epoch, opt)
-
         # if opt['sampler'] == 'invtunnel' or opt['sampler'] == 'tunnel':
         #     new_weights = compute_weights_stats(model, criterion, weights_loader)
         #     train_loader.sampler.weights = new_weights

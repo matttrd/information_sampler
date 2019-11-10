@@ -88,6 +88,7 @@ def create_logger(ctx, idx=0):
     return l
 
 
+
 #def schedule(opt, e, logger=None, k=None):
 def schedule(ctx, k=None):
     logger = ctx.ex.logger
