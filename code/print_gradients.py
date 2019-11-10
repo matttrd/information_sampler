@@ -22,6 +22,8 @@ def string_splitter(string, key):
 
 # For each run creates grad stats dictionary divided in IS and default
 def load_grad_stats(run):
+    import collections
+
     curr_path = os.path.join(run, 'gradients_stats')
 
     # Find the number of batches and create the dictionary
@@ -33,6 +35,13 @@ def load_grad_stats(run):
             dict_stats[string_splitter(stats, 'BS')][stats.split('_')[0]]= [stats]
         else:
             dict_stats[string_splitter(stats, 'BS')][stats.split('_')[0]].append(stats)
+
+    # Sorting by BS
+    dict_stats = collections.OrderedDict(sorted(dict_stats.items()))
+
+    # Ordering by sampler
+    for bs in dict_stats:
+        dict_stats[bs] = collections.OrderedDict(sorted(dict_stats[bs].items()))
 
     #Sortig
     for bs in dict_stats:
@@ -65,6 +74,7 @@ def load_gradients_norms_directors(exp_path, run, epoch_model):
         data = pkl.load(file)
 
     return data['sum_mean_grad'], data['sum_var_grad'], data['gradients_norm']
+
 
 # Comparing histograms default vs importance sampling
 for run in runs.keys():
