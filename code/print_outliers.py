@@ -131,7 +131,7 @@ def print_forgetting_based_outliers(run_path, less_counts=1, size_plot=104):
 
     # Plot hist
     plt.figure(), plt.title(title)
-    plt.hist(ordered_values, label="Mean: " + str(np.mean(np.array(ordered_values))) + " std: " + str(np.std(np.array(ordered_values))), linewidth=2)
+    plt.hist(ordered_values, bins=210, label="Mean: " + str(np.mean(np.array(ordered_values))) + " std: " + str(np.std(np.array(ordered_values))), linewidth=2)
     plt.grid(), plt.legend(), plt.tight_layout()
     plt.savefig(os.path.join(save_path, 'forgetting_hist.pdf'), dpi=2560, bbox_inches='tight')
     plt.close()
