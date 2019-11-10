@@ -200,33 +200,35 @@ for run in runs.keys():
             plt.savefig(os.path.join(saving_path, f'norm_gradients_kde_epochs_BS_{bs}_gradSampler_{sampler}_{title}.pdf'), dpi=2560, bbox_inches='tight')
             plt.close()
 
+try:
+    mask_epochs = [0, 59, 119, 159]
+    for run in runs:
+        weights_path = os.path.join(exp_path, run, 'weigths_folder')
+        dict_weights = dict()
+        for file in os.listdir(weights_path):
+            epoch = int(file.split('_')[-1].split('.')[0])
+            if epoch in mask_epochs:
+                f = open(os.path.join(weights_path, file), 'rb')
+                w = pkl.load(f)
+                dict_weights[epoch] = w
+        dict_weights = collections.OrderedDict(sorted(dict_weights.items()))
 
-mask_epochs = [0, 59, 119, 159]
-for run in runs:
-    weights_path = os.path.join(exp_path, run, 'weigths_folder')
-    dict_weights = dict()
-    for file in os.listdir(weights_path):
-        epoch = int(file.split('_')[-1].split('.')[0])
-        if epoch in mask_epochs:
-            f = open(os.path.join(weights_path, file), 'rb')
-            w = pkl.load(f)
-            dict_weights[epoch] = w
-    dict_weights = collections.OrderedDict(sorted(dict_weights.items()))
-
-    fig, axs = plt.subplots(1, len(mask_epochs))
-    fig.set_size_inches(20.5, 10.5)
-    info = runs[run]['info_run']
-    title = info['sampler'] + '_' + 'Temp' + '_' + str(info['temperature']).replace('.', '_') + '_' + 'norm_' + str(info['normalizer'])
-    k = 0
-    for epoch, count in dict_weights.items():
-        bins = np.linspace(min(count),max(count),100)
-        axs[k].hist(count, alpha=0.5, bins=bins, label=sampler)
-        axs[k].set_title(f"Epoch {epoch} ")
-        axs[k].grid()
-        axs[k].legend()
-        k += 1
-    fig.suptitle(title, fontsize=30), plt.tight_layout()
-    saving_path = os.path.join(exp_path, run, 'analysis')
-    plt.savefig(os.path.join(saving_path, f'weights_hists_{title}.pdf'), dpi=2560, bbox_inches='tight')
-    plt.close()
-    # plt.show()
+        fig, axs = plt.subplots(1, len(mask_epochs))
+        fig.set_size_inches(20.5, 10.5)
+        info = runs[run]['info_run']
+        title = info['sampler'] + '_' + 'Temp' + '_' + str(info['temperature']).replace('.', '_') + '_' + 'norm_' + str(info['normalizer'])
+        k = 0
+        for epoch, count in dict_weights.items():
+            bins = np.linspace(min(count),max(count),100)
+            axs[k].hist(count, alpha=0.5, bins=bins, label=sampler)
+            axs[k].set_title(f"Epoch {epoch} ")
+            axs[k].grid()
+            axs[k].legend()
+            k += 1
+        fig.suptitle(title, fontsize=30), plt.tight_layout()
+        saving_path = os.path.join(exp_path, run, 'analysis')
+        plt.savefig(os.path.join(saving_path, f'weights_hists_{title}.pdf'), dpi=2560, bbox_inches='tight')
+        plt.close()
+        # plt.show()
+except:
+    print(f"Experiment {exp_path} does not possess saved sampling weights!!!")
