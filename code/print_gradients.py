@@ -109,11 +109,12 @@ for run in runs.keys():
     plt.close()
     # plt.show()
 
-# Comparing cosines angles at differnt epochs
+embed()
+# Comparing cosines angles for importance sampling at differnt epochs
 for run in runs.keys():
     current = runs[run]['dict_stats']
     info = runs[run]['info_run']
-    title = info['sampler'] + '_' + 'Temp' + '_' + str(info['temperature']).replace('.', '_') + '_' + 'norm_' + str(info['normalizer'])
+    title = 'exp_sampler' + info['sampler'] + '_' + 'Temp' + '_' + str(info['temperature']).replace('.', '_') + '_' + 'norm_' + str(info['normalizer'])
     for i, bs in enumerate(current.keys()):
         for j, sampler in enumerate(current[bs]):
             plt.figure()
@@ -129,14 +130,14 @@ for run in runs.keys():
             plt.title(title), plt.tight_layout()
             plt.legend()
             saving_path = os.path.join(exp_path, run, 'analysis')
-            plt.savefig(os.path.join(saving_path, f'gradients_hists_epochs_BS_{bs}_{title}.pdf'), dpi=2560, bbox_inches='tight')
+            plt.savefig(os.path.join(saving_path, f'gradients_hists_epochs_BS_{bs}_gradSampler_{sampler}_{title}.pdf'), dpi=2560, bbox_inches='tight')
             plt.close()
 
 # Comparing cosines angles at differnt epochs using kde
 for run in runs.keys():
     current = runs[run]['dict_stats']
     info = runs[run]['info_run']
-    title = info['sampler'] + '_' + 'Temp' + '_' + str(info['temperature']).replace('.', '_') + '_' + 'norm_' + str(info['normalizer'])
+    title = 'exp_sampler' + info['sampler'] + '_' + 'Temp' + '_' + str(info['temperature']).replace('.', '_') + '_' + 'norm_' + str(info['normalizer'])
     for i, bs in enumerate(current.keys()):
         for j, sampler in enumerate(current[bs]):
             plt.figure()
@@ -153,14 +154,14 @@ for run in runs.keys():
             plt.title(title), plt.tight_layout()
             plt.legend()
             saving_path = os.path.join(exp_path, run, 'analysis')
-            plt.savefig(os.path.join(saving_path, f'gradients_kde_epochs_BS_{bs}_{title}.pdf'), dpi=2560, bbox_inches='tight')
+            plt.savefig(os.path.join(saving_path, f'gradients_kde_epochs_BS_{bs}_gradSampler_{sampler}_{title}.pdf'), dpi=2560, bbox_inches='tight')
             plt.close()
 
 # Comparing cosines angles at differnt epochs using kde
 for run in runs.keys():
     current = runs[run]['dict_stats']
     info = runs[run]['info_run']
-    title = info['sampler'] + '_' + 'Temp' + '_' + str(info['temperature']).replace('.', '_') + '_' + 'norm_' + str(info['normalizer'])
+    title = 'exp_sampler' + info['sampler'] + '_' + 'Temp' + '_' + str(info['temperature']).replace('.', '_') + '_' + 'norm_' + str(info['normalizer'])
     for i, bs in enumerate(current.keys()):
         for j, sampler in enumerate(current[bs]):
             plt.figure()
@@ -173,7 +174,7 @@ for run in runs.keys():
             plt.title(title + f" sum_mean_g: {sum_mean_grad:.3f} sum_var_g: {sum_var_grad:.3f}"), plt.tight_layout()
             plt.legend()
             saving_path = os.path.join(exp_path, run, 'analysis')
-            plt.savefig(os.path.join(saving_path, f'norm_gradients_hist_epochs_BS_{bs}_{title}.pdf'), dpi=2560, bbox_inches='tight')
+            plt.savefig(os.path.join(saving_path, f'norm_gradients_hist_epochs_BS_{bs}_gradSampler_{sampler}_{title}.pdf'), dpi=2560, bbox_inches='tight')
             plt.close()
             # plt.show()
 
@@ -181,7 +182,7 @@ for run in runs.keys():
 for run in runs.keys():
     current = runs[run]['dict_stats']
     info = runs[run]['info_run']
-    title = info['sampler'] + '_' + 'Temp' + '_' + str(info['temperature']).replace('.', '_') + '_' + 'norm_' + str(info['normalizer'])
+    title = 'exp_sampler' + info['sampler'] + '_' + 'Temp' + '_' + str(info['temperature']).replace('.', '_') + '_' + 'norm_' + str(info['normalizer'])
     for i, bs in enumerate(current.keys()):
         for j, sampler in enumerate(current[bs]):
             plt.figure()
@@ -196,5 +197,5 @@ for run in runs.keys():
             plt.title(title + f" sum_mean_g: {sum_mean_grad:.3f} sum_var_g: {sum_var_grad:.3f}"), plt.tight_layout()
             plt.legend()
             saving_path = os.path.join(exp_path, run, 'analysis')
-            plt.savefig(os.path.join(saving_path, f'norm_gradients_kde_epochs_BS_{bs}_{title}.pdf'), dpi=2560, bbox_inches='tight')
+            plt.savefig(os.path.join(saving_path, f'norm_gradients_kde_epochs_BS_{bs}_gradSampler_{sampler}_{title}.pdf'), dpi=2560, bbox_inches='tight')
             plt.close()
