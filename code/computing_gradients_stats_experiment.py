@@ -11,14 +11,16 @@ opt = vars(parser.parse_args())
 
 print(f"You can choose the batch size for the gradients histograms!!! Now you have BS = {opt['bs']}")
 
-if 'cifar10' in opt['exp']:
-    dataset = 'cifar10'
-elif 'cifar100' in opt['exp']:
+if 'cifar100' in opt['exp']:
     dataset = 'cifar100'
+elif 'cifar10' in opt['exp']:
+    dataset = 'cifar10'
 else:
     raise NotImplementedError('Gradients loader are only for cifar10/100')
 
-if 'resnet18' in opt['exp']:
+if 'resnet10' in opt['exp']:
+    arch = 'resnet10'
+elif 'resnet18' in opt['exp']:
     arch = 'resnet18'
 elif 'resnet34' in opt['exp']:
     arch = 'resnet34'
