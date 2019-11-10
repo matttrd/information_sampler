@@ -5,6 +5,7 @@ from count_visualization import kde_sklearn, get_params_from_log
 import matplotlib.pyplot as plt
 import pickle as pkl
 import numpy as np
+import collections
 
 parser = argparse.ArgumentParser(description='gradients_stats',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -22,8 +23,6 @@ def string_splitter(string, key):
 
 # For each run creates grad stats dictionary divided in IS and default
 def load_grad_stats(run):
-    import collections
-
     curr_path = os.path.join(run, 'gradients_stats')
 
     # Find the number of batches and create the dictionary
@@ -81,7 +80,7 @@ for run in runs.keys():
     current = runs[run]['dict_stats']
     fig, axs = plt.subplots(len(current.keys()), len(current[list(current.keys())[0]]['default']))
     info = runs[run]['info_run']
-    title = info['sampler'] + '_' + 'Temp' + '_' + str(info['temperature']).replace('.', '_') + '_' + 'norm_' + str(info['normalizer'])
+    title = 'exp_sampler' + info['sampler'] + '_' + 'Temp' + '_' + str(info['temperature']).replace('.', '_') + '_' + 'norm_' + str(info['normalizer'])
     fig.set_size_inches(20.5, 10.5)
     z = 0
     for i, bs in enumerate(current.keys()):
@@ -96,6 +95,8 @@ for run in runs.keys():
                 if len(current.keys()) == 1:
                     axs[k].hist(cosine_directors, alpha=0.5, bins=bins, label=sampler)
                     axs[k].set_title(f"Bs {bs} Epoch {string_splitter(epoch_model, 'model').split('.')[0]} ")
+                    axs[k].grid()
+                    axs[k].legend()
                 else:
                     axs[z][k].hist(cosine_directors, alpha=0.5, bins=bins, label=sampler)
                     axs[z][k].set_title(f"Bs {bs} Epoch {string_splitter(epoch_model, 'model').split('.')[0]} ")
@@ -109,7 +110,6 @@ for run in runs.keys():
     plt.close()
     # plt.show()
 
-embed()
 # Comparing cosines angles for importance sampling at differnt epochs
 for run in runs.keys():
     current = runs[run]['dict_stats']
@@ -199,3 +199,34 @@ for run in runs.keys():
             saving_path = os.path.join(exp_path, run, 'analysis')
             plt.savefig(os.path.join(saving_path, f'norm_gradients_kde_epochs_BS_{bs}_gradSampler_{sampler}_{title}.pdf'), dpi=2560, bbox_inches='tight')
             plt.close()
+
+
+mask_epochs = [0, 59, 119, 159]
+for run in runs:
+    weights_path = os.path.join(exp_path, run, 'weigths_folder')
+    dict_weights = dict()
+    for file in os.listdir(weights_path):
+        epoch = int(file.split('_')[-1].split('.')[0])
+        if epoch in mask_epochs:
+            f = open(os.path.join(weights_path, file), 'rb')
+            w = pkl.load(f)
+            dict_weights[epoch] = w
+    dict_weights = collections.OrderedDict(sorted(dict_weights.items()))
+
+    fig, axs = plt.subplots(1, len(mask_epochs))
+    fig.set_size_inches(20.5, 10.5)
+    info = runs[run]['info_run']
+    title = info['sampler'] + '_' + 'Temp' + '_' + str(info['temperature']).replace('.', '_') + '_' + 'norm_' + str(info['normalizer'])
+    k = 0
+    for epoch, count in dict_weights.items():
+        bins = np.linspace(min(count),max(count),100)
+        axs[k].hist(count, alpha=0.5, bins=bins, label=sampler)
+        axs[k].set_title(f"Epoch {epoch} ")
+        axs[k].grid()
+        axs[k].legend()
+        k += 1
+    fig.suptitle(title, fontsize=30), plt.tight_layout()
+    saving_path = os.path.join(exp_path, run, 'analysis')
+    plt.savefig(os.path.join(saving_path, f'weights_hists_{title}.pdf'), dpi=2560, bbox_inches='tight')
+    plt.close()
+    # plt.show()
