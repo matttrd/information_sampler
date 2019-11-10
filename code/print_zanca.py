@@ -43,10 +43,16 @@ if 'corr' in opt['exp']:
 if not is_folder_present('analysis_exctracted_images') or opt['replace']:
     os.system(f"python3 print_outliers.py --exp {opt['exp']}")
 
-if not is_folder_present('gradients_stats') or opt['replace']:
-    os.system(f"python3 computing_gradients_stats_experiment.py --exp {opt['exp']} --bs {opt['bs']} --gpu {opt['gpu']}")
+try:
+    if not is_folder_present('gradients_stats') or opt['replace']:
+        os.system(f"python3 computing_gradients_stats_experiment.py --exp {opt['exp']} --bs {opt['bs']} --gpu {opt['gpu']}")
+except:
+    print(f"Experiment {opt['exp']} does not possess checkpoint models or weights.")
 
-os.system(f"python3 print_gradients.py --exp {opt['exp']}")
+try:
+    os.system(f"python3 print_gradients.py --exp {opt['exp']}")
+except:
+    print(f"Experiment {opt['exp']} does not possess checkpoint models.")
 
 #Plotting train and validaiton losses
 global_path = os.getcwd()
