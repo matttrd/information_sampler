@@ -66,40 +66,39 @@ def get_params_from_log(f):
             return r
     assert len(r.keys) > 0, 'Could not find [OPT] marker in '+f
 
-
-parser = argparse.ArgumentParser(description='count_visualization',
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser.add_argument('--sd', default=f'..{os.sep}results') #Note this is not used now since we are saving on the exp run folder
-parser.add_argument('--exp', default=f'..{os.sep}results', required=True)
-parser.add_argument('--epochs', default=[59,119,159,179])
-opt = vars(parser.parse_args())
-
-epochs = [str(ep) for ep in opt['epochs']]
-
-exp_path = os.path.join(f'..{os.sep}results{os.sep}', opt['exp'])
-
-# Parsing the experiment folder creating a dict of runs
-exp_runs = {}
-for exp in os.listdir(exp_path):
-    if not exp == 'analysis_experiments':
-        exp_runs[exp] = exp
-
-# embed()
-
-# Creating a dictionary (keys are exp_runs) of dictionaries containing the
-# actual counts (filtered by epochs) and the saving path
-counts = {}
-for exp, run in exp_runs.items():
-    path = os.path.join(exp_path, exp)
-    counts[exp] = {'counts': []}
-    counts[exp]['name_exp'] = get_params_from_log(os.path.join(path, 'logs', 'flogger.log')) #To load the logger
-    counts[exp]['save_path'] = os.path.join(path, 'analysis')
-    for file in os.listdir(os.path.join(path, 'sample_counts')):
-        if file.split('_')[-1].split('.')[0] in epochs:
-            with open(os.path.join(path, 'sample_counts', file), 'rb') as f:
-                counts[exp]['counts'].append(pkl.load(f))
-    if not os.path.isdir(counts[exp]['save_path']):
-        os.makedirs(counts[exp]['save_path'], exist_ok=True)
-
 if __name__ == "__main__":
-	create_histograms(counts)
+    parser = argparse.ArgumentParser(description='count_visualization',
+            formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('--sd', default=f'..{os.sep}results') #Note this is not used now since we are saving on the exp run folder
+    parser.add_argument('--exp', default=f'..{os.sep}results', required=True)
+    parser.add_argument('--epochs', default=[59,119,159,179])
+    opt = vars(parser.parse_args())
+
+    epochs = [str(ep) for ep in opt['epochs']]
+
+    exp_path = os.path.join(f'..{os.sep}results{os.sep}', opt['exp'])
+
+    # Parsing the experiment folder creating a dict of runs
+    exp_runs = {}
+    for exp in os.listdir(exp_path):
+        if not exp == 'analysis_experiments':
+            exp_runs[exp] = exp
+
+    # embed()
+
+    # Creating a dictionary (keys are exp_runs) of dictionaries containing the
+    # actual counts (filtered by epochs) and the saving path
+    counts = {}
+    for exp, run in exp_runs.items():
+        path = os.path.join(exp_path, exp)
+        counts[exp] = {'counts': []}
+        counts[exp]['name_exp'] = get_params_from_log(os.path.join(path, 'logs', 'flogger.log')) #To load the logger
+        counts[exp]['save_path'] = os.path.join(path, 'analysis')
+        for file in os.listdir(os.path.join(path, 'sample_counts')):
+            if file.split('_')[-1].split('.')[0] in epochs:
+                with open(os.path.join(path, 'sample_counts', file), 'rb') as f:
+                    counts[exp]['counts'].append(pkl.load(f))
+        if not os.path.isdir(counts[exp]['save_path']):
+            os.makedirs(counts[exp]['save_path'], exist_ok=True)
+
+    create_histograms(counts)
