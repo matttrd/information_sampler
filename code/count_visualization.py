@@ -101,4 +101,5 @@ for exp, run in exp_runs.items():
     if not os.path.isdir(counts[exp]['save_path']):
         os.makedirs(counts[exp]['save_path'], exist_ok=True)
 
-create_histograms(counts)
+if __name__ == "__main__":
+	create_histograms(counts)
