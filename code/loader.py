@@ -66,6 +66,34 @@ class MyDataset(Dataset):
     def __len__(self):
         return len(self.data)
 
+def img_num(cifar_version):
+    dt = {'10': 5000, '100': 500}
+    return dt[cifar_version]
+
+def get_img_num_per_cls(cifar_version, imb_factor):
+    """
+    Get a list of image numbers for each class, given cifar version
+    Num of imgs follows emponential distribution
+    img max: 5000 / 500 * e^(-lambda * 0);
+    img min: 5000 / 500 * e^(-lambda * int(cifar_version - 1))
+    exp(-lambda * (int(cifar_version) - 1)) = img_max / img_min
+    args:
+      cifar_version: str, '10', '100', '20'
+      imb_factor: float, imbalance factor: img_min/img_max,
+        None if geting default cifar data number
+    output:
+      img_num_per_cls: a list of number of images per class
+    """
+    cls_num = int(cifar_version)
+    img_max = img_num(cifar_version)
+    if imb_factor is None:
+        return [img_max] * cls_num
+    img_num_per_cls = []
+    for cls_idx in range(cls_num):
+        num = img_max * (imb_factor**(cls_idx / (cls_num - 1.0)))
+        img_num_per_cls.append(int(num))
+    return img_num_per_cls
+
 
 def corrupt_labels(train_labels, corrupt_prob, num_classes):
     labels = np.array(train_labels)
@@ -426,6 +454,28 @@ def load_data(name, source, shuffle, frac, perc, mode, \
         test_dataset, _ = reduce_dataset(test_dataset, sclasses)
         train_length = len(train_dataset)
 
+    if opt['cifar_imb_factor'] is not None and name in ['cifar10', 'cifar100']:
+        if name == 'cifar10':
+            img_num_per_cls = get_img_num_per_cls('10', opt['cifar_imb_factor'])
+        elif name == 'cifar100':
+            img_num_per_cls = get_img_num_per_cls('100', opt['cifar_imb_factor'])
+        indices = []
+        y = np.array(train_dataset.data.targets)
+        for class_idx in range(len(img_num_per_cls)):
+            # position of samples belonging to class_idx
+            current_class_all_idx = np.argwhere(y == class_idx)
+            # convert the result into a 1-D list
+            current_class_all_idx = list(current_class_all_idx[:,0])
+            current_class_selected_idx = list(np.random.choice(current_class_all_idx, img_num_per_cls[class_idx], replace=False))
+            print(len(current_class_selected_idx))
+            indices = indices + current_class_selected_idx
+        train_dataset.data.data = train_dataset.data.data[indices,:,:,:]
+        train_dataset.data.targets = [train_dataset.data.targets[k] for k in list(indices)]
+        train_length = len(train_dataset)
+        print('New Dataset length is ', train_length)
+        #print(sum(img_num_per_cls))   # sanity check: must be equal to 'train_length'
+        #print(img_num_per_cls) 
+        
     
 
     if opt['unbalanced']: 
