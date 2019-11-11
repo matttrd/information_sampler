@@ -4,7 +4,8 @@ import foolbox
 from foolbox.attacks import RandomStartProjectedGradientDescentAttack as PGD
 import torchnet as tnt 
 import argparse
-import models
+#import models
+from models imprt 
 from light_loader import data_ingredient, load_data
 from sacred import Experiment
 from torchnet.meter import ClassErrorMeter, ConfusionMeter
@@ -32,6 +33,15 @@ def init(name):
     opt['dataset'] = name
     return opt
 
+class ModelWrapper(torch.nn.Module):
+    def __init__(self, model):
+        super().__init__()
+        self.m = model
+
+    def forward(self,x):
+        out, _ = model(x)
+        return out
+
 @ex.automain
 def main():
     opt=init()
@@ -42,13 +52,17 @@ def main():
     print('Loading model...')
     d = torch.load(opt['input'], map_location=lambda storage, loc: storage.cuda())
     opt['d'] = 0.
-    model = getattr(models, d['arch'])(opt).cuda(opt['g'])
+    opt_m = d['opt']
+    opt_m = opt['dataset']
+    #model = getattr(models, d['arch'])(opt).cuda(opt['g'])
+    model = create_and_load_model(opt_m)
     model.load_state_dict(d['state_dict'])
+    model = ModelWrapper(model)
     model.eval()
-    fmodel = foolbox.models.PyTorchModel(model, bounds=(0, 1), num_classes=models.get_num_classes(opt))
-    attack = PGD(fmodel, distance=foolbox.distances.Linfinity)
+    fmodel = foolbox.models.PyTorchModel(model, bounds=(0, 1), num_classes=get_num_classes(opt_m))
+    attack = PGD(fmodel, distance=foolbox.distances.L2)
     train_loader, val_loader, _ = load_data(name=opt['dataset'], opt=opt)
-    adv_conf_mat = ConfusionMeter(models.get_num_classes(opt), normalized=True)
+    adv_conf_mat = ConfusionMeter(get_num_classes(opt_m), normalized=True)
     errors = ClassErrorMeter(topk=[1])
 
     for i, (x,y) in enumerate(val_loader):
