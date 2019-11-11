@@ -107,7 +107,7 @@ def main_worker(opt):
         
         save_path = os.path.join(exp_path, runs, 'analysis')
 
-        model_dict = torch.load(os.path.join(exp_path, runs, 'last_model.pth.tar'))
+        model_dict = torch.load(os.path.join(exp_path, runs, 'last_model.pth.tar'), map_location=lambda storage, loc: storage)
         opt_m = model_dict['opt']
         model = create_and_load_model(opt_m)
         model.load_state_dict(model_dict['state_dict'])
