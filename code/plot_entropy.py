@@ -147,7 +147,7 @@ def main_worker(opt):
             if num_cols * num_rows < get_num_classes(opt_m):
                 num_rows += 1
             fig, axs = plt.subplots(num_rows, num_cols)
-            for cl_id, ax in zip(classes, axs):
+            for cl_id in classes:
                 sm_cl = sm[targets==cl_id]
                 entropies = - torch.sum(sm_cl * th.log(sm_cl), dim=1)
                 plt.clf()
