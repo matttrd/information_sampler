@@ -114,6 +114,7 @@ def cfg():
     save_counts_list = [0,59,60,61,119,120,121,159,160,161]
     corr_labels = 0. # fraction of labels to be corrupted
     forgetting_stats = True
+    cifar_imb_factor = None 
 best_top1 = 0
 
 # for some reason, the db must me created in the global scope
