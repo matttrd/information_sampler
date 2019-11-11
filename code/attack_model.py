@@ -66,12 +66,12 @@ def main():
     errors = ClassErrorMeter(topk=[1])
 
     for i, (x,y) in enumerate(val_loader):
-        adversarial = attack(x.cpu().numpy()[0], y.cpu().numpy()[0], epsilon=4./255., binary_search=False, iterations=20)
+        adversarial = attack(x.cpu().numpy(), y.cpu().numpy(), epsilon=1./255., binary_search=False, iterations=20)
         #adversarial = attack(x.cpu().numpy()[0], y.cpu().numpy()[0])
         if adversarial is None:
-        	pred = y.cpu().numpy()[0]
+            pred = y.cpu().numpy()[0]
         else:
-        	pred = np.argmax(fmodel.predictions(adversarial))
+            pred = np.argmax(fmodel.forward(adversarial))
         pred = torch.from_numpy(pred[np.newaxis, ...]).long()
         adv_conf_mat.add(pred.data, y.data)
         #errors.add(pred.data, y.data)
