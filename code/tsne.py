@@ -30,6 +30,7 @@ from sklearn.decomposition import PCA
 from sklearn import manifold
 import seaborn as sns
 import matplotlib.pyplot as plt
+homedir = os.path.expanduser("~")
 
 parser = argparse.ArgumentParser(description='tsne', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 # experiment directory
@@ -83,7 +84,7 @@ def plot_tsne(x, y, npca=50, use_pca=True, markersize=10, opts=None):
     #legend1 = ax.legend(*scatter.legend_elements(), loc="lower left", title="Classes")
     #ax.add_artist(legend1)
     #plt.show()
-    fn = '_'.join(('/home/matteo/Dropbox/results/tsne', opts['sampler'], opts['dataset'], opts['arch']))
+    fn = '_'.join(os.path.join(homedir,'Dropbox/results/tsne', opts['sampler'], opts['dataset'], opts['arch']))
     if opts['sampler'] is not 'default':
         fn = fn + '_' + str(opts['temperature']) + '.pdf'
     plt.savefig(fn, format='pdf')

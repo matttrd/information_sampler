@@ -476,9 +476,9 @@ def load_data(name, source, shuffle, frac, perc, mode, \
         #weights_init = np.get_imbalance_weights(dataset, indices=indices, num_samples=None)
     else:
         if opt['sampler'] == 'tunnel':
-            sc = 1e-4
+            sc = 1e-8
         else:
-            sc = 1e4
+            sc = 1e8
         weights_init = torch.DoubleTensor(np.zeros(train_length) + sc)
 
     sampler = torch.utils.data.WeightedRandomSampler(weights=weights_init, num_samples=int(len(weights_init)), replacement=True)

@@ -151,6 +151,12 @@ def get_all_data_loss_top1(opt):
             keywords = json.loads(fstr)
             # default settings
             kws = check_default_compared(opt, keywords)
+            opt_log = get_params_from_log(f)
+            temperature = opt_log['temperature']
+            try:
+                keywords['temperature'] = temperature
+            except KeyError:
+                kws['temperature'] = temperature 
             # load data
             di = loadlog(f, kws=kws)
             d.append(di)
