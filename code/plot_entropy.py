@@ -161,7 +161,8 @@ def main_worker(opt):
                 plt.xlabel('Entropy')
                 plt.savefig(os.path.join(save_path, f'entropy_cl_{cl_id}.pdf'), 
                     bbox_inches='tight', format='pdf')
-
+        plt.close()
+        
 @ctx.ex.automain
 def main():
     init()
