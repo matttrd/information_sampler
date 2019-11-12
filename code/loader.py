@@ -475,7 +475,9 @@ def load_data(name, source, shuffle, frac, perc, mode, \
         print('New Dataset length is ', train_length)
         #print(sum(img_num_per_cls))   # sanity check: must be equal to 'train_length'
         #print(img_num_per_cls) 
-        
+        fn = os.path.join(opt.get('o'), opt['exp'], opt['filename'])
+        with open(os.path.join(fn, 'selected_indices.pkl'), 'wb') as handle:
+            pkl.dump(indices, handle, protocol=pkl.HIGHEST_PROTOCOL)
     
 
     if opt['unbalanced']: 

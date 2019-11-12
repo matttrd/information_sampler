@@ -74,6 +74,19 @@ def shot_acc(preds, labels, train_data, many_shot_thr=100, low_shot_thr=20):
         else:
             median_shot.append((class_correct[i] / test_class_count[i]))          
     return np.mean(many_shot), np.mean(median_shot), np.mean(low_shot)
+
+def shot_acc_cifar(preds, labels, train_data):  
+
+    training_labels = np.array(train_data.dataset.data.targets).astype(int)
+    preds = preds.detach().cpu().numpy()
+    labels = labels.detach().cpu().numpy()
+    acc_per_class = []
+    for l in np.unique(labels):
+        test_class_count = len(labels[labels == l])
+        class_correct = np.array(preds[labels == l] == labels[labels == l]).sum()
+        acc_per_class.append(class_correct/test_class_count)
+
+    return acc_per_class
         
 def F_measure(preds, labels, openset=False, theta=None):
     

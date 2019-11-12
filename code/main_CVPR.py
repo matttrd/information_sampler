@@ -22,7 +22,7 @@ from sacred import Experiment
 import threading
 from hook import *
 import pickle as pkl
-from utils_lt import shot_acc
+from utils_lt import shot_acc, shot_acc_cifar
 from IPython import embed
 import matplotlib.pyplot as plt
 import defaults
@@ -146,6 +146,8 @@ def init(name):
     ctx.init = 0
     ctx.counter = 0
     ctx.forgetting_stats = None #Used to store all the interesting statistics for the forgetting experiment
+    if ctx.opt['cifar_imb_factor'] is not None:
+        ctx.acc_per_class = []
     # if ctx.opt['sampler'] == 'our':
     #     ctx.weights_logger = create_basic_logger(ctx, 'statistics', idx=0)
     register_hooks(ctx)
@@ -402,10 +404,14 @@ def validate(val_loader, train_dataset, model, criterion, opt):
     stats = {'loss': loss, 'top1': top1}
 
     if '_lt' in ctx.opt['dataset'] or ctx.opt['cifar_imb_factor'] is not None:
-        many_acc_top1, median_acc_top1, low_acc_top1 = shot_acc(preds, targets, train_dataset)
-        stats['many_acc_top1'] = many_acc_top1
-        stats['median_acc_top1'] = median_acc_top1
-        stats['low_acc_top1'] = low_acc_top1
+        if ctx.opt['dataset'] == 'imagenet_lt':
+            many_acc_top1, median_acc_top1, low_acc_top1 = shot_acc(preds, targets, train_dataset)
+            stats['many_acc_top1'] = many_acc_top1
+            stats['median_acc_top1'] = median_acc_top1
+            stats['low_acc_top1'] = low_acc_top1
+        else:
+            acc = shot_acc_cifar(preds, targets, train_dataset) 
+            ctx.acc_per_class.append(acc)
 
     ctx.metrics = stats
     return stats
@@ -678,6 +684,12 @@ def main():
     os.makedirs(save_dir, exist_ok=True)
     with open(os.path.join(save_dir, 'stats.pkl'), 'wb') as handle:
         pkl.dump(ctx.forgetting_stats, handle, protocol=pkl.HIGHEST_PROTOCOL)
+
+    if ctx.opt['cifar_imb_factor'] is not None:
+        acc_dir = os.path.join(ctx.opt.get('o'), ctx.opt['exp'], ctx.opt['filename'], 'accuracies_per_class')
+        os.makedirs(acc_dir, exist_ok=True)    
+        with open(os.path.join(acc_dir, 'accuracies.pkl'), 'wb') as handle:
+            pkl.dump(np.array(ctx.acc_per_class), handle, protocol=pkl.HIGHEST_PROTOCOL)
 
     if ctx.opt['pilot']:
         # we need the array of sorted indexes in the form [easy --> hard]
