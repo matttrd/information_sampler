@@ -114,7 +114,9 @@ def cfg():
     save_counts_list = [0,59,60,61,119,120,121,159,160,161]
     corr_labels = 0. # fraction of labels to be corrupted
     forgetting_stats = True
-    cifar_imb_factor = None 
+    cifar_imb_factor = None
+    focal_loss = False
+    gamma = 1.
 best_top1 = 0
 
 # for some reason, the db must me created in the global scope
@@ -547,6 +549,9 @@ def main_worker(opt):
     # define loss function (criterion) and optimizer
     if opt['bce']:
         criterion = nn.BCEWithLogitsLoss(reduction='none').cuda(opt['g'])
+    elif opt['focal_loss']:
+    	from losses import FocalLoss
+    	criterion = FocalLoss(gamma=opt['gamma'])
     else:
         criterion = nn.CrossEntropyLoss(reduction='none').cuda(opt['g'])
 

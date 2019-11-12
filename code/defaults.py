@@ -31,7 +31,7 @@ TRAINING_DEFAULTS = {
         "lrs": '[[0,0.1],[150,0.01],[300,0.001]]'
     },
     'imagenet_lt': {
-        "epochs": 150,
+        #"epochs": 150,
         #"b": 256,
         "save_epochs" : SAVE_EPOCHS,
         "wd": 5e-4,
