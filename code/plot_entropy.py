@@ -117,6 +117,7 @@ def main_worker(opt):
 
         if val_loader is None:
             # Data loading code
+            opt_m['cifar_imb_factor'] = None
             _, _, val_loader, _, train_length = load_data(opt=opt_m)
         
         preds, targets = get_outputs(val_loader, model)
