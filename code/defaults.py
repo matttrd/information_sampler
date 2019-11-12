@@ -35,7 +35,7 @@ TRAINING_DEFAULTS = {
         #"b": 256,
         "save_epochs" : SAVE_EPOCHS,
         "wd": 5e-4,
-         "lrs": '[[0,0.1],[50,0.01],[100,0.001]]'
+         #"lrs": '[[0,0.1],[50,0.01],[100,0.001]]'
     },
     'places_lt': {
         "epochs": 180,

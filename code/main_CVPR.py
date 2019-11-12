@@ -26,6 +26,7 @@ from utils_lt import shot_acc, shot_acc_cifar
 from IPython import embed
 import matplotlib.pyplot as plt
 import defaults
+from scipy import interpolate
 
 # local thread used as a global context
 ctx = threading.local()
@@ -117,6 +118,8 @@ def cfg():
     cifar_imb_factor = None
     focal_loss = False
     gamma = 1.
+    lb = False # linear warm up
+
 best_top1 = 0
 
 # for some reason, the db must me created in the global scope
@@ -426,7 +429,7 @@ def train_clean(loader, train_dataset, model, criterion, opt):
     targets = []
 
     with torch.no_grad():
-        for i, (input, target, _) in tqdm(enumerate(loader)):
+        for i, (input, target, idx) in tqdm(enumerate(loader)):
             input = input.cuda(opt['g'])
             target = target.cuda(opt['g'])
 
@@ -440,6 +443,10 @@ def train_clean(loader, train_dataset, model, criterion, opt):
                 new_target = target
 
             loss = criterion(output, new_target).mean()
+            S_prob = compute_weights(ctx.complete_outputs, output, target, idx, criterion)
+            if opt['sampler'] == 'invtunnel' or opt['sampler'] == 'tunnel':
+                ctx.train_loader.sampler.weights = S_prob
+
             preds.append(output.max(dim=1)[1])
             targets.append(target)
 
@@ -534,9 +541,14 @@ def adjust_temperature(epoch, opt):
     #     ratio = (epoch / opt['epochs']) ** 0.5
     #     ctx.opt['temperature'] = final_temp * ratio + initial_temp * (1 - ratio)
     if opt['temperatures'] != '':
-    	opt['temperature'] = schedule(ctx, k='temperature')
+        opt['temperature'] = schedule(ctx, k='temperature')
     return
 
+def get_lb_warmup(e):
+    lrs = np.array(json.loads(opt['lrs']))
+    interp = interpolate.interp1d(lrs[:,0], lrs[:,1], kind='linear',fill_value='extrapolate')
+    lr = np.asscalar(interp(e))
+    return lr
 
 @train_hook(ctx)
 def main_worker(opt):
@@ -556,8 +568,8 @@ def main_worker(opt):
     if opt['bce']:
         criterion = nn.BCEWithLogitsLoss(reduction='none').cuda(opt['g'])
     elif opt['focal_loss']:
-    	from losses import FocalLoss
-    	criterion = FocalLoss(gamma=opt['gamma'])
+        from losses import FocalLoss
+        criterion = FocalLoss(gamma=opt['gamma'])
     else:
         criterion = nn.CrossEntropyLoss(reduction='none').cuda(opt['g'])
 
@@ -603,7 +615,7 @@ def main_worker(opt):
     ctx.max_class_count = 0
 
     count = torch.zeros_like(complete_outputs).cuda(opt['g'])
-    #ctx.complete_outputs = complete_outputs
+    ctx.complete_outputs = complete_outputs
     ctx.count = count
     ctx.max_count = 0
 
@@ -622,6 +634,12 @@ def main_worker(opt):
         ctx.epoch = epoch
         if not opt['adam']:
             adjust_learning_rate(epoch)
+            if opt['lb']:
+                lr = get_lb_warmup(epoch)
+                for param_group in optimizer.param_groups:
+                    param_group['lr'] = lr
+                print(lr)
+
         adjust_temperature(epoch, opt)
         # if opt['sampler'] == 'invtunnel' or opt['sampler'] == 'tunnel':
         #     new_weights = compute_weights_stats(model, criterion, weights_loader)
