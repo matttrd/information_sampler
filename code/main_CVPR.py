@@ -634,11 +634,12 @@ def main_worker(opt):
         ctx.epoch = epoch
         if not opt['adam']:
             adjust_learning_rate(epoch)
+            lrs = np.array(json.loads(opt['lrs']))
             if e <= lrs[1,0]:
                 lr = get_lb_warmup(e)
             else:
                 lr = get_lr(e) * opt['b'] / 128
-                
+
             for param_group in optimizer.param_groups:
                 param_group['lr'] = lr
             print(lr)
