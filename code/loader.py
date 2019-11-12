@@ -467,7 +467,6 @@ def load_data(name, source, shuffle, frac, perc, mode, \
             # convert the result into a 1-D list
             current_class_all_idx = list(current_class_all_idx[:,0])
             current_class_selected_idx = list(np.random.choice(current_class_all_idx, img_num_per_cls[class_idx], replace=False))
-            print(len(current_class_selected_idx))
             indices = indices + current_class_selected_idx
         train_dataset.data.data = train_dataset.data.data[indices,:,:,:]
         train_dataset.data.targets = [train_dataset.data.targets[k] for k in list(indices)]
