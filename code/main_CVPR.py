@@ -545,7 +545,10 @@ def adjust_temperature(epoch, opt):
     return
 
 def get_lb_warmup(e):
-    lrs = np.array(json.loads(opt['lrs']))
+    if isinstance(ctx.opt['lrs'], str):
+        lrs = np.array(json.loads(ctx.opt['lrs']))
+    else:
+        lrs = np.array(ctx.opt['lrs'])
     interp = interpolate.interp1d(lrs[:,0], lrs[:,1], kind='linear',fill_value='extrapolate')
     lr = np.asscalar(interp(e))
     return lr
@@ -633,10 +636,13 @@ def main_worker(opt):
         start_t = time.time()
         ctx.epoch = epoch
         if not opt['adam']:
-
+            if isinstance(opt['lrs'], str):
+                lrs = np.array(json.loads(opt['lrs']))
+            else:
+                lrs = np.array(opt['lrs'])
             if opt['lb'] and epoch <= lrs[1,0]:
-                    lr = get_lb_warmup(epoch)
-                    print(lr)
+                lr = get_lb_warmup(epoch)
+                print(lr)
 
                 for param_group in optimizer.param_groups:
                     param_group['lr'] = lr
