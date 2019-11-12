@@ -634,11 +634,14 @@ def main_worker(opt):
         ctx.epoch = epoch
         if not opt['adam']:
             adjust_learning_rate(epoch)
-            if opt['lb']:
-                lr = get_lb_warmup(epoch)
-                for param_group in optimizer.param_groups:
-                    param_group['lr'] = lr
-                print(lr)
+            if e <= lrs[1,0]:
+                lr = get_lb_warmup(e)
+            else:
+                lr = get_lr(e) * opt['b'] / 128
+                
+            for param_group in optimizer.param_groups:
+                param_group['lr'] = lr
+            print(lr)
 
         adjust_temperature(epoch, opt)
         # if opt['sampler'] == 'invtunnel' or opt['sampler'] == 'tunnel':
