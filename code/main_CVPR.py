@@ -399,7 +399,7 @@ def validate(val_loader, train_dataset, model, criterion, opt):
 
     stats = {'loss': loss, 'top1': top1}
 
-    if '_lt' in ctx.opt['dataset']:
+    if '_lt' in ctx.opt['dataset'] or ctx.opt['cifar_imb_factor'] is not None:
         many_acc_top1, median_acc_top1, low_acc_top1 = shot_acc(preds, targets, train_dataset)
         stats['many_acc_top1'] = many_acc_top1
         stats['median_acc_top1'] = median_acc_top1
