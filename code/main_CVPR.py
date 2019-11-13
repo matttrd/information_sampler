@@ -123,7 +123,7 @@ def cfg():
     x_0 = np.log(2)
     x_1 =  np.log(10/2)
     beta_0 = 0.1
-    beta_1 = 0.1
+    beta_1 = beta_0
 
 best_top1 = 0
 
