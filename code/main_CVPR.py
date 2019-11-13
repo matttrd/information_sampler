@@ -204,7 +204,7 @@ def compute_weights(complete_outputs, outputs, targets, idx, criterion):
     classes = ctx.classes
     # Updating losses in the list of dictionaries
     for j, ind in enumerate(idx):
-        classes[targets[j]][ind] = complete_outputs[idx[j]].item()
+        classes[targets[j].item()][ind.item()] = complete_outputs[ind.item()].item()
 
     F_min = (ctx.opt['x_0'] + ctx.opt['x_1'])/ 2 # torch.log(2), torch.log(10/2)
 
@@ -214,16 +214,18 @@ def compute_weights(complete_outputs, outputs, targets, idx, criterion):
         losses_median = []
         for _, los in classes[class_index].items():
             losses_median.append(los)
-        start = time.time()
         median[class_index] = torch.median(torch.tensor(losses_median))
-        print(time.time() - start)
 
     medians = ctx.medians
-    for cla, dict_loss  in enumerate(classes):
+    
+    for cla, dict_loss in enumerate(classes):
+        start = time.time()
+        #ct = 0
         for indeces in dict_loss:
             medians[indeces] = median[cla]
-        # print(indeces)
+            #ct += 1
 
+    # print(len(dict_loss) if type(dict_loss) is not float else 1)  
     
     complete_loss_normalized = (complete_losses - medians - torch.tensor(F_min)) / medians
     J = F(complete_loss_normalized, ctx.opt['x_0'], ctx.opt['x_1'], ctx.opt['beta_0'], ctx.opt['beta_1'])
@@ -658,7 +660,7 @@ def main_worker(opt):
     classes = [{} for i in range(10)]
     for i, (input, target, index) in enumerate(weights_loader):
         for j, ind in enumerate(index):
-            classes[target[j]][ind] = complete_outputs[index[j]].item()
+            classes[target[j].item()][ind.item()] = complete_outputs[index[j].item()].item()
 
     ctx.classes = classes
     cardinality = [len(i)  for i in classes]
@@ -668,8 +670,6 @@ def main_worker(opt):
     for i, cla in enumerate(classes):
         for ind in cla:
             ctx.complete_cardinality[ind] = cardinality[i]
-
-
 
 
 
