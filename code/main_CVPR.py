@@ -120,6 +120,11 @@ def cfg():
     gamma = 1.
     lb = False # linear warm up
 
+    x_0 = np.log(2)
+    x_1 =  np.log(10/2)
+    beta_0 = 0.1
+    beta_1 = 0.1
+
 best_top1 = 0
 
 # for some reason, the db must me created in the global scope
@@ -170,6 +175,7 @@ def compute_weights(complete_outputs, outputs, targets, idx, criterion):
             new_targets = targets
 
         complete_outputs[index] = criterion(o, new_targets[i].unsqueeze(0)).mean()
+
         ctx.count[index] += 1
         if ctx.opt['adjust_classes']:
             ctx.class_count[targets[i]] += 1
@@ -189,13 +195,45 @@ def compute_weights(complete_outputs, outputs, targets, idx, criterion):
             ratio = ctx.opt['ac_scaler'] * ctx.class_count[targets[i]] / ctx.max_class_count
             complete_losses[index] = complete_losses[index] / ratio
 
-    nrm = temp * complete_losses.max() if ctx.opt['normalizer'] else temp
-    if ctx.opt['sampler'] == 'tunnel':
-        S_prob = torch.exp(-complete_losses / nrm)
-    else:
-        S_prob = 1 - torch.exp(-complete_losses / nrm)
+    # nrm = temp * complete_losses.max() if ctx.opt['normalizer'] else temp
+    # if ctx.opt['sampler'] == 'tunnel':
+    #     S_prob = torch.exp(-complete_losses / nrm)
+    # else:
+    #     S_prob = 1 - torch.exp(-complete_losses / nrm)
+
+    embed()
+    classes = ctx.classes
+    # Updating losses in the list of dictionaries
+    for j, ind in enumerate(idx):
+        classes[targets[j]][ind] = complete_outputs[idx[j]].item()
+
+    F_min = (ctx.opt['x_0'] + ctx.opt['x_1'])/ 2 # torch.log(2), torch.log(10/2)
+
+    # Compute medians per class
+    median = torch.zeros(10)
+    for class_index in range(len(classes)):
+        losses_median = []
+        for _, los in classes[class_index].items():
+            losses_median.append(los)
+        median[class_index] = torch.median(torch.tensor(losses_median))
+
+
+    medians= ctx.medians
+    for cla, dict_loss  in enumerate(classes):
+        for indeces in dict_loss:
+            medians[indeces] = median[cla]
+
+    complete_loss_normalized = (complete_losses - medians - torch.tensor(F_min)) / medians
+    J = F(complete_loss_normalized, ctx.opt['x_0'], ctx.opt['x_1'], ctx.opt['beta_0'], ctx.opt['beta_1'])
+
+    S_prob = (1- torch.exp(-J)) * medians / ctx.complete_cardinality
 
     return S_prob
+
+def F(loss, x_0, x_1, beta_0, beta_1):
+    return torch.exp((loss - x_0) / beta_0) +  torch.exp(-(loss - x_1)/ beta_1)
+
+
 
 def compute_weights_stats(model, criterion, loader, save_stats):
     opt = ctx.opt
@@ -413,7 +451,7 @@ def validate(val_loader, train_dataset, model, criterion, opt):
             stats['median_acc_top1'] = median_acc_top1
             stats['low_acc_top1'] = low_acc_top1
         else:
-            acc = shot_acc_cifar(preds, targets, train_dataset) 
+            acc = shot_acc_cifar(preds, targets, train_dataset)
             ctx.acc_per_class.append(acc)
 
     ctx.metrics = stats
@@ -500,7 +538,7 @@ def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
                 os.makedirs(counts_dir)
             with open(os.path.join(counts_dir, 'sample_counts_' + str(ctx.epoch) + '.pkl'), 'wb') as handle:
                 pkl.dump(ctx.count.cpu().numpy(), handle, protocol=pkl.HIGHEST_PROTOCOL)
-                
+
             weights_dir = os.path.join(opt.get('o'), opt['exp'], opt['filename']) + f'{os.sep}weigths_folder{os.sep}'
             os.makedirs(weights_dir, exist_ok=True)
             with open(os.path.join(weights_dir, 'S_weights_' + str(ctx.epoch) + '.pkl'), 'wb') as handle:
@@ -613,6 +651,26 @@ def main_worker(opt):
     #complete_outputs = torch.ones(train_length).cuda(opt['g'])
     complete_outputs = train_loader.sampler.weights.clone().cuda(opt['g'])
 
+    # Create a list of dictionaries of indeces and losses
+    print('Classes for modified IS')
+    classes = [{} for i in range(10)]
+    for i, (input, target, index) in enumerate(weights_loader):
+        for j, ind in enumerate(index):
+            classes[target[j]][ind] = complete_outputs[index[j]].item()
+
+    ctx.classes = classes
+    cardinality = [len(i)  for i in classes]
+
+    ctx.medians = torch.zeros_like(complete_losses).cuda(ctx.opt['g'])
+    ctx.complete_cardinality = torch.zeros_like(complete_outputs).cuda(ctx.opt['g'])
+    for i, cla in enumerate(classes):
+        for ind in cla:
+            ctx.complete_cardinality[ind] = cardinality[i]
+
+
+
+
+
     if opt['adjust_classes']:
         ctx.class_count = torch.ones(get_num_classes(opt)).cuda(opt['g'])
     ctx.max_class_count = 0
@@ -714,7 +772,7 @@ def main():
 
     if ctx.opt['cifar_imb_factor'] is not None:
         acc_dir = os.path.join(ctx.opt.get('o'), ctx.opt['exp'], ctx.opt['filename'], 'accuracies_per_class')
-        os.makedirs(acc_dir, exist_ok=True)    
+        os.makedirs(acc_dir, exist_ok=True)
         with open(os.path.join(acc_dir, 'accuracies.pkl'), 'wb') as handle:
             pkl.dump(np.array(ctx.acc_per_class), handle, protocol=pkl.HIGHEST_PROTOCOL)
 
