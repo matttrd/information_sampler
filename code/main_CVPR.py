@@ -201,7 +201,6 @@ def compute_weights(complete_outputs, outputs, targets, idx, criterion):
     # else:
     #     S_prob = 1 - torch.exp(-complete_losses / nrm)
 
-    embed()
     classes = ctx.classes
     # Updating losses in the list of dictionaries
     for j, ind in enumerate(idx):
