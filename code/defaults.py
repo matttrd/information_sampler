@@ -3,7 +3,7 @@ SAVE_EPOCHS = [0,59,119,159]
 
 TRAINING_DEFAULTS = {
     'cifar10': {
-        "epochs": 180,
+        #"epochs": 180,
         #"b": 128,
         "save_epochs" : SAVE_EPOCHS,
         "wd":5e-4,
