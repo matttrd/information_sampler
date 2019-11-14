@@ -188,49 +188,48 @@ def compute_weights(complete_outputs, outputs, targets, idx, criterion):
             ctx.max_count = max_
 
     complete_losses = complete_outputs
-    temp = ctx.opt['temperature']
+    ncounts = ctx.count / ctx.max_count
+    if ctx.opt['dyncount']:
+        temp = ctx.opt['temperature'] * ncounts
+    else:
+        temp = ctx.opt['temperature']
 
     if ctx.opt['adjust_classes']:
         for i, index in enumerate(idx):
             ratio = ctx.opt['ac_scaler'] * ctx.class_count[targets[i]] / ctx.max_class_count
             complete_losses[index] = complete_losses[index] / ratio
 
-    # nrm = temp * complete_losses.max() if ctx.opt['normalizer'] else temp
-    # if ctx.opt['sampler'] == 'tunnel':
-    #     S_prob = torch.exp(-complete_losses / nrm)
-    # else:
-    #     S_prob = 1 - torch.exp(-complete_losses / nrm)
+    nrm = temp * complete_losses.max() if ctx.opt['normalizer'] else temp
+    if ctx.opt['sampler'] == 'tunnel':
+        S_prob = torch.exp(-complete_losses / nrm)
+    else:
+        S_prob = 1 - torch.exp(-complete_losses / nrm)
 
-    classes = ctx.classes
-    # Updating losses in the list of dictionaries
-    for j, ind in enumerate(idx):
-        classes[targets[j].item()][ind.item()] = complete_outputs[ind.item()].item()
 
-    F_min = (ctx.opt['x_0'] + ctx.opt['x_1'])/ 2 # torch.log(2), torch.log(10/2)
-
-    # Compute medians per class
-    median = torch.zeros(10)
-    for class_index in range(len(classes)):
-        losses_median = []
-        for _, los in classes[class_index].items():
-            losses_median.append(los)
-        median[class_index] = torch.median(torch.tensor(losses_median))
-
-    medians = ctx.medians
-    
-    for cla, dict_loss in enumerate(classes):
-        start = time.time()
-        #ct = 0
-        for indeces in dict_loss:
-            medians[indeces] = median[cla]
-            #ct += 1
-
-    # print(len(dict_loss) if type(dict_loss) is not float else 1)  
-    
-    complete_loss_normalized = (complete_losses - medians - torch.tensor(F_min)) / medians
-    J = F(complete_loss_normalized, ctx.opt['x_0'], ctx.opt['x_1'], ctx.opt['beta_0'], ctx.opt['beta_1'])
-
-    S_prob = (1- torch.exp(-J)) * medians / ctx.complete_cardinality
+    ####		ZANCA'S METHOD		###
+    #classes = ctx.classes
+    ## Updating losses in the list of dictionaries
+    #for j, ind in enumerate(idx):
+    #    classes[targets[j].item()][ind.item()] = complete_outputs[ind.item()].item()
+    #F_min = (ctx.opt['x_0'] + ctx.opt['x_1'])/ 2 # torch.log(2), torch.log(10/2)
+    ## Compute medians per class
+    #median = torch.zeros(10)
+    #for class_index in range(len(classes)):
+    #    losses_median = []
+    #    for _, los in classes[class_index].items():
+    #        losses_median.append(los)
+    #    median[class_index] = torch.median(torch.tensor(losses_median))
+    #medians = ctx.medians
+    #for cla, dict_loss in enumerate(classes):
+    #    start = time.time()
+    #    #ct = 0
+    #    for indeces in dict_loss:
+    #        medians[indeces] = median[cla]
+    #        #ct += 1
+    ## print(len(dict_loss) if type(dict_loss) is not float else 1)  
+    #complete_loss_normalized = (complete_losses - medians - torch.tensor(F_min)) / medians
+    #J = F(complete_loss_normalized, ctx.opt['x_0'], ctx.opt['x_1'], ctx.opt['beta_0'], ctx.opt['beta_1'])
+    #S_prob = (1- torch.exp(-J)) * medians / ctx.complete_cardinality
 
     return S_prob
 
