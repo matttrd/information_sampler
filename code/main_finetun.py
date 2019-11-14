@@ -26,6 +26,7 @@ from utils_lt import shot_acc, shot_acc_cifar
 from IPython import embed
 import matplotlib.pyplot as plt
 import defaults
+from scipy import interpolate
 
 # local thread used as a global context
 ctx = threading.local()
@@ -117,6 +118,13 @@ def cfg():
     cifar_imb_factor = None
     focal_loss = False
     gamma = 1.
+    lb = False # linear warm up
+
+    x_0 = np.log(2)
+    x_1 =  np.log(10/2)
+    beta_0 = 0.1
+    beta_1 = beta_0
+
 best_top1 = 0
 
 # for some reason, the db must me created in the global scope
@@ -133,7 +141,7 @@ def init(name):
     ctx.global_iters = 0
     ctx.epoch = 0
     ctx.opt = init_opt(ctx)
-    #ctx.opt = defaults.add_args_to_opt(name, ctx.opt)
+    ctx.opt = defaults.add_args_to_opt(name, ctx.opt)
 
     if ctx.opt.get('filename', None) is None:
         build_filename(ctx)
@@ -167,6 +175,7 @@ def compute_weights(complete_outputs, outputs, targets, idx, criterion):
             new_targets = targets
 
         complete_outputs[index] = criterion(o, new_targets[i].unsqueeze(0)).mean()
+
         ctx.count[index] += 1
         if ctx.opt['adjust_classes']:
             ctx.class_count[targets[i]] += 1
@@ -179,7 +188,11 @@ def compute_weights(complete_outputs, outputs, targets, idx, criterion):
             ctx.max_count = max_
 
     complete_losses = complete_outputs
-    temp = ctx.opt['temperature']
+    ncounts = ctx.count / ctx.max_count
+    if ctx.opt['dyncount']:
+        temp = ctx.opt['temperature'] * ncounts
+    else:
+        temp = ctx.opt['temperature']
 
     if ctx.opt['adjust_classes']:
         for i, index in enumerate(idx):
@@ -192,7 +205,38 @@ def compute_weights(complete_outputs, outputs, targets, idx, criterion):
     else:
         S_prob = 1 - torch.exp(-complete_losses / nrm)
 
+
+    ####        ZANCA'S METHOD      ###
+    #classes = ctx.classes
+    ## Updating losses in the list of dictionaries
+    #for j, ind in enumerate(idx):
+    #    classes[targets[j].item()][ind.item()] = complete_outputs[ind.item()].item()
+    #F_min = (ctx.opt['x_0'] + ctx.opt['x_1'])/ 2 # torch.log(2), torch.log(10/2)
+    ## Compute medians per class
+    #median = torch.zeros(10)
+    #for class_index in range(len(classes)):
+    #    losses_median = []
+    #    for _, los in classes[class_index].items():
+    #        losses_median.append(los)
+    #    median[class_index] = torch.median(torch.tensor(losses_median))
+    #medians = ctx.medians
+    #for cla, dict_loss in enumerate(classes):
+    #    start = time.time()
+    #    #ct = 0
+    #    for indeces in dict_loss:
+    #        medians[indeces] = median[cla]
+    #        #ct += 1
+    ## print(len(dict_loss) if type(dict_loss) is not float else 1)  
+    #complete_loss_normalized = (complete_losses - medians - torch.tensor(F_min)) / medians
+    #J = F(complete_loss_normalized, ctx.opt['x_0'], ctx.opt['x_1'], ctx.opt['beta_0'], ctx.opt['beta_1'])
+    #S_prob = (1- torch.exp(-J)) * medians / ctx.complete_cardinality
+
     return S_prob
+
+def F(loss, x_0, x_1, beta_0, beta_1):
+    return torch.exp((loss - x_0) / beta_0) +  torch.exp(-(loss - x_1)/ beta_1)
+
+
 
 def compute_weights_stats(model, criterion, loader, save_stats):
     opt = ctx.opt
@@ -286,61 +330,45 @@ def updating_forgetting_stats(loss, output, target, idx, len_dataset):
         # ctx.forgetting_stats[index.item()]['counts'].append(ctx.count[index.item()].item())
 
 
-def runner_G(feats, target, classifier, criterion, optimizer):
-    output = classifier(feats)
-    if ctx.opt['bce']:
-            orig_target = target.clone()
-            new_target = logical_index(target, output.shape).float()
-    else:
-        new_target = target
-
-    loss = criterion(output, new_target)
-    loss = loss.mean()
-    optimizer.zero_grad()
-    loss.backward()
-    optimizer.step()
-    return  
-
 @batch_hook(ctx, mode='train')
 def runner(input, target, model, criterion, optimizer, idx, complete_outputs):
     # compute output
         # embed()
+        output, _ = model(input)
 
-    output, _ = model(input)
+        if ctx.opt['bce']:
+            orig_target = target.clone()
+            new_target = logical_index(target, output.shape).float()
+        else:
+            new_target = target
 
-    if ctx.opt['bce']:
-        orig_target = target.clone()
-        new_target = logical_index(target, output.shape).float()
-    else:
-        new_target = target
+        loss = criterion(output, new_target)
 
-    loss = criterion(output, new_target)
+        if ctx.opt['forgetting_stats']:
+            updating_forgetting_stats(loss, output, target, idx, complete_outputs.shape[0])
 
-    if ctx.opt['forgetting_stats']:
-        updating_forgetting_stats(loss, output, target, idx, complete_outputs.shape[0])
+        loss = loss.mean()
 
-    loss = loss.mean()
+        # measure accuracy and record loss
+        ctx.errors.add(output.data, target.data)
+        ctx.losses.add(loss.item())
 
-    # measure accuracy and record loss
-    ctx.errors.add(output.data, target.data)
-    ctx.losses.add(loss.item())
+        # compute gradient and do SGD step
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        avg_stats = {'loss': ctx.losses.value()[0],
+                     'top1': ctx.errors.value()[0]}
+        # batch_stats = {'loss': loss.item(),
+        #          'top1': ctx.errors.value()[0],
+        #          'top5': ctx.errors.value()[1]}
 
-    # compute gradient and do SGD step
-    optimizer.zero_grad()
-    loss.backward()
-    optimizer.step()
-    avg_stats = {'loss': ctx.losses.value()[0],
-                 'top1': ctx.errors.value()[0]}
-    # batch_stats = {'loss': loss.item(),
-    #          'top1': ctx.errors.value()[0],
-    #          'top5': ctx.errors.value()[1]}
+        # ctx.metrics.batch = stats
+        ctx.metrics['avg'] = avg_stats
+        S_prob = compute_weights(complete_outputs, output, target, idx, criterion)
+        avg_stats['top1'] = (100 - avg_stats['top1']) / 100.
 
-    # ctx.metrics.batch = stats
-    ctx.metrics['avg'] = avg_stats
-    S_prob = compute_weights(complete_outputs, output, target, idx, criterion)
-    avg_stats['top1'] = (100 - avg_stats['top1']) / 100.
-
-    return avg_stats, S_prob
+        return avg_stats, S_prob
 
 @epoch_hook(ctx, mode='train')
 def train(train_loader, model, criterion, optimizer, epoch, opt, complete_outputs):
@@ -348,38 +376,22 @@ def train(train_loader, model, criterion, optimizer, epoch, opt, complete_output
     ctx.losses = AverageValueMeter()
     ctx.errors = ClassErrorMeter(topk=[1,5])
     n_iters = int(len(train_loader) * opt['wufreq'])
-    iters = iter(train_loader)
+
     # switch to train mode
     model.train()
 
     # end = time.time()
-    for i, (input, target, idx) in enumerate(ctx.plain_train_loader):
+    for i, (input, target, idx) in enumerate(train_loader):
         # tmp var (for convenience)
         ctx.i = i
         ctx.global_iters += 1
         input = input.cuda(opt['g'])
         target = target.cuda(opt['g'])
-
         stats, S_prob = runner(input, target, model, criterion, optimizer, idx, complete_outputs)
         ctx.S_prob = S_prob
-
-        try:
-            input, target, idx = next(iters)
-        except StopIteration:
-            iters = iter(ctx.train_loader)
-            input, target, idx = next(iters)
-
-        input = input.cuda(opt['g'])
-        target = target.cuda(opt['g'])
-
-        _, feats = model(input)
-        runner_G(feats.detach(), target, model.linear, criterion, ctx.optimizerG)
-
-        
         if opt['sampler'] == 'invtunnel' or opt['sampler'] == 'tunnel':
             train_loader.sampler.weights = ctx.S_prob
 
-        
         loss = stats['loss']
         top1 = stats['top1']
 
@@ -388,7 +400,7 @@ def train(train_loader, model, criterion, optimizer, epoch, opt, complete_output
                   'Time {time:.3f}\t'
                   'Loss {loss:.4f}\t'
                   'Acc@1 {top1:.3f}\t'.format(
-                   epoch, i, len(ctx.plain_train_loader),
+                   epoch, i, len(train_loader),
                    time=data_time.value(), loss=loss,
                    top1=top1 * 100.))
 
@@ -442,7 +454,7 @@ def validate(val_loader, train_dataset, model, criterion, opt):
             stats['median_acc_top1'] = median_acc_top1
             stats['low_acc_top1'] = low_acc_top1
         else:
-            acc = shot_acc_cifar(preds, targets, train_dataset) 
+            acc = shot_acc_cifar(preds, targets, train_dataset)
             ctx.acc_per_class.append(acc)
 
     ctx.metrics = stats
@@ -458,7 +470,7 @@ def train_clean(loader, train_dataset, model, criterion, opt):
     targets = []
 
     with torch.no_grad():
-        for i, (input, target, _) in tqdm(enumerate(loader)):
+        for i, (input, target, idx) in tqdm(enumerate(loader)):
             input = input.cuda(opt['g'])
             target = target.cuda(opt['g'])
 
@@ -472,6 +484,10 @@ def train_clean(loader, train_dataset, model, criterion, opt):
                 new_target = target
 
             loss = criterion(output, new_target).mean()
+            S_prob = compute_weights(ctx.complete_outputs, output, target, idx, criterion)
+            if opt['sampler'] == 'invtunnel' or opt['sampler'] == 'tunnel':
+                ctx.train_loader.sampler.weights = S_prob
+
             preds.append(output.max(dim=1)[1])
             targets.append(target)
 
@@ -525,7 +541,7 @@ def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
                 os.makedirs(counts_dir)
             with open(os.path.join(counts_dir, 'sample_counts_' + str(ctx.epoch) + '.pkl'), 'wb') as handle:
                 pkl.dump(ctx.count.cpu().numpy(), handle, protocol=pkl.HIGHEST_PROTOCOL)
-                
+
             weights_dir = os.path.join(opt.get('o'), opt['exp'], opt['filename']) + f'{os.sep}weigths_folder{os.sep}'
             os.makedirs(weights_dir, exist_ok=True)
             with open(os.path.join(weights_dir, 'S_weights_' + str(ctx.epoch) + '.pkl'), 'wb') as handle:
@@ -569,6 +585,14 @@ def adjust_temperature(epoch, opt):
         opt['temperature'] = schedule(ctx, k='temperature')
     return
 
+def get_lb_warmup(e):
+    if isinstance(ctx.opt['lrs'], str):
+        lrs = np.array(json.loads(ctx.opt['lrs']))
+    else:
+        lrs = np.array(ctx.opt['lrs'])
+    interp = interpolate.interp1d(lrs[:,0], lrs[:,1], kind='linear',fill_value='extrapolate')
+    lr = np.asscalar(interp(e))
+    return lr
 
 @train_hook(ctx)
 def main_worker(opt):
@@ -593,7 +617,28 @@ def main_worker(opt):
     else:
         criterion = nn.CrossEntropyLoss(reduction='none').cuda(opt['g'])
 
+    # optionally resume from a checkpoint
+    if opt['resume']:
+        if os.path.isfile(opt['resume']):
+            print("=> loading checkpoint '{}'".format(opt['resume']))
+            checkpoint = torch.load(opt['resume'])
+            opt['start_epoch'] = 0
+            best_top1 = checkpoint['best_top1']
+            model.load_state_dict(checkpoint['state_dict'])
+            #optimizer.load_state_dict(checkpoint['optimizer'])
+            print("=> loaded checkpoint '{}' (epoch {})"
+                  .format(opt['resume'], checkpoint['epoch']))
+        else:
+            print("=> no checkpoint found at '{}'".format(opt['resume']))
+
+
     classifier = model.linear
+    import math
+    for m in model.modules():
+        if isinstance(m, torch.nn.Linear):
+            m.weight.data.normal_(0, math.sqrt(2./m.in_features))
+            m.bias.data.fill_(-np.log(get_num_classes(opt) - 1))
+
     feats_net_pars = list(model.conv1.parameters()) + list(model.bn1.parameters())
     feats_net_pars+= list(model.layer1.parameters())
     feats_net_pars+= list(model.layer2.parameters())
@@ -601,62 +646,57 @@ def main_worker(opt):
     feats_net_pars+= list(model.layer4.parameters())
 
     if opt['adam']:
-        optimizer = torch.optim.Adam(feats_net_pars, 1e-4,
-                                betas = (0.9,0.99),
-                                weight_decay=opt['wd'])
-        optimizerG = torch.optim.Adam(classifier.parameters(), 1e-3,
+        optimizer = torch.optim.Adam(model.parameters(), opt['lr'],
                                 betas = (0.9,0.99),
                                 weight_decay=opt['wd'])
     else:
-        optimizer = torch.optim.SGD(feats_net_pars, opt['lr'],
-                                    momentum=opt['momentum'],
-                                    nesterov=opt['nesterov'],
-                                    weight_decay=opt['wd'])
-        optimizerG = torch.optim.SGD(classifier.parameters(), 1e-4,
-                                    momentum=opt['momentum'],
-                                    nesterov=opt['nesterov'],
-                                    weight_decay=0.)
-
+        # optimizer = torch.optim.SGD(model.parameters(), opt['lr'],
+        #                             momentum=opt['momentum'],
+        #                             nesterov=opt['nesterov'],
+        #                             weight_decay=opt['wd'])
+        optimizer = torch.optim.SGD([
+                {'params': feats_net_pars, 'lr': 0.},
+                {'params': classifier.parameters(), 'lr':1e-3}
+            ], lr=opt['lr'], momentum=0.9)
+    
     ctx.optimizer = optimizer
-    ctx.optimizerG = optimizerG
     ctx.model = model
 
-    # optionally resume from a checkpoint
-    if opt['resume']:
-        if os.path.isfile(opt['resume']):
-            print("=> loading checkpoint '{}'".format(opt['resume']))
-            checkpoint = torch.load(opt['resume'])
-            opt['start_epoch'] = checkpoint['epoch']
-            best_top1 = checkpoint['best_top1']
-            model.load_state_dict(checkpoint['state_dict'])
-            optimizer.load_state_dict(checkpoint['optimizer'])
-            print("=> loaded checkpoint '{}' (epoch {})"
-                  .format(opt['resume'], checkpoint['epoch']))
-        else:
-            print("=> no checkpoint found at '{}'".format(opt['resume']))
-
+    
     cudnn.benchmark = True
 
     # Data loading code
-    opt['b'] = 256
     train_loader, clean_train_loader, val_loader, weights_loader, train_length = load_data(opt=opt)
     ctx.train_loader = train_loader
-    opt1 = opt.copy()
-    opt1['sampler'] = 'default'
-    opt1['b'] = 128
-    plain_train_loader, _, _, _, _ = load_data(opt=opt1)
-    ctx.plain_train_loader = plain_train_loader
     #ctx.counter = 1
 
     #complete_outputs = torch.ones(train_length).cuda(opt['g'])
     complete_outputs = train_loader.sampler.weights.clone().cuda(opt['g'])
+
+    # # Create a list of dictionaries of indeces and losses
+    # print('Classes for modified IS')
+    # classes = [{} for i in range(10)]
+    # for i, (input, target, index) in enumerate(weights_loader):
+    #     for j, ind in enumerate(index):
+    #         classes[target[j].item()][ind.item()] = complete_outputs[index[j].item()].item()
+
+    # ctx.classes = classes
+    # cardinality = [len(i)  for i in classes]
+
+    # ctx.medians = torch.zeros_like(complete_outputs).cuda(ctx.opt['g'])
+    # ctx.complete_cardinality = torch.zeros_like(complete_outputs).cuda(ctx.opt['g'])
+    # for i, cla in enumerate(classes):
+    #     for ind in cla:
+    #         ctx.complete_cardinality[ind] = cardinality[i]
+
+
 
     if opt['adjust_classes']:
         ctx.class_count = torch.ones(get_num_classes(opt)).cuda(opt['g'])
     ctx.max_class_count = 0
 
     count = torch.zeros_like(complete_outputs).cuda(opt['g'])
-    #ctx.complete_outputs = complete_outputs
+    ctx.complete_outputs = complete_outputs
     ctx.count = count
     ctx.max_count = 0
 
@@ -673,8 +713,20 @@ def main_worker(opt):
     for epoch in range(opt['start_epoch'], opt['epochs']):
         start_t = time.time()
         ctx.epoch = epoch
-        if not opt['adam']:
-            adjust_learning_rate(epoch)
+        # if not opt['adam']:
+        #     if isinstance(opt['lrs'], str):
+        #         lrs = np.array(json.loads(opt['lrs']))
+        #     else:
+        #         lrs = np.array(opt['lrs'])
+        #     if opt['lb'] and epoch <= lrs[1,0]:
+        #         lr = get_lb_warmup(epoch)
+        #         print(lr)
+
+        #         for param_group in optimizer.param_groups:
+        #             param_group['lr'] = lr
+        #     else:
+        #         adjust_learning_rate(epoch)
+
         adjust_temperature(epoch, opt)
         # if opt['sampler'] == 'invtunnel' or opt['sampler'] == 'tunnel':
         #     new_weights = compute_weights_stats(model, criterion, weights_loader)
@@ -738,10 +790,9 @@ def main():
     with open(os.path.join(save_dir, 'stats.pkl'), 'wb') as handle:
         pkl.dump(ctx.forgetting_stats, handle, protocol=pkl.HIGHEST_PROTOCOL)
 
-    
     if ctx.opt['cifar_imb_factor'] is not None:
         acc_dir = os.path.join(ctx.opt.get('o'), ctx.opt['exp'], ctx.opt['filename'], 'accuracies_per_class')
-        os.makedirs(acc_dir, exist_ok=True)    
+        os.makedirs(acc_dir, exist_ok=True)
         with open(os.path.join(acc_dir, 'accuracies.pkl'), 'wb') as handle:
             pkl.dump(np.array(ctx.acc_per_class), handle, protocol=pkl.HIGHEST_PROTOCOL)
 
