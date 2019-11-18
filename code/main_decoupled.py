@@ -613,7 +613,11 @@ def main_worker(opt):
                                     momentum=opt['momentum'],
                                     nesterov=opt['nesterov'],
                                     weight_decay=opt['wd'])
+<<<<<<< HEAD
         optimizerG = torch.optim.SGD(classifier.parameters(), 1e-3,
+=======
+        optimizerG = torch.optim.SGD(classifier.parameters(), 1e-4,
+>>>>>>> 07d86dab3dbcf4693b09f30ae5eed7c82022652b
                                     momentum=opt['momentum'],
                                     nesterov=opt['nesterov'],
                                     weight_decay=0.)

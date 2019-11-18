@@ -124,7 +124,6 @@ def cfg():
     x_1 =  np.log(10/2)
     beta_0 = 0.1
     beta_1 = beta_0
-    reweight = False
 
 best_top1 = 0
 
@@ -205,7 +204,33 @@ def compute_weights(complete_outputs, outputs, targets, idx, criterion):
         S_prob = torch.exp(-complete_losses / nrm)
     else:
         S_prob = 1 - torch.exp(-complete_losses / nrm)
-        
+
+
+    ####        ZANCA'S METHOD      ###
+    #classes = ctx.classes
+    ## Updating losses in the list of dictionaries
+    #for j, ind in enumerate(idx):
+    #    classes[targets[j].item()][ind.item()] = complete_outputs[ind.item()].item()
+    #F_min = (ctx.opt['x_0'] + ctx.opt['x_1'])/ 2 # torch.log(2), torch.log(10/2)
+    ## Compute medians per class
+    #median = torch.zeros(10)
+    #for class_index in range(len(classes)):
+    #    losses_median = []
+    #    for _, los in classes[class_index].items():
+    #        losses_median.append(los)
+    #    median[class_index] = torch.median(torch.tensor(losses_median))
+    #medians = ctx.medians
+    #for cla, dict_loss in enumerate(classes):
+    #    start = time.time()
+    #    #ct = 0
+    #    for indeces in dict_loss:
+    #        medians[indeces] = median[cla]
+    #        #ct += 1
+    ## print(len(dict_loss) if type(dict_loss) is not float else 1)  
+    #complete_loss_normalized = (complete_losses - medians - torch.tensor(F_min)) / medians
+    #J = F(complete_loss_normalized, ctx.opt['x_0'], ctx.opt['x_1'], ctx.opt['beta_0'], ctx.opt['beta_1'])
+    #S_prob = (1- torch.exp(-J)) * medians / ctx.complete_cardinality
+
     return S_prob
 
 def F(loss, x_0, x_1, beta_0, beta_1):
@@ -317,23 +342,12 @@ def runner(input, target, model, criterion, optimizer, idx, complete_outputs):
         else:
             new_target = target
 
-        scaler = 1.
-        if ctx.opt['reweight']:
-            inv_card = 1 / ctx.complete_cardinality[ctx.idx]
-            scaler = (inv_card / torch.sum(inv_card)).float()
-
-        loss = scaler * criterion(output, new_target)
+        loss = criterion(output, new_target)
 
         if ctx.opt['forgetting_stats']:
             updating_forgetting_stats(loss, output, target, idx, complete_outputs.shape[0])
 
-        lm = loss.mean()
-        # grads = torch.autograd.grad(lm, model.parameters(), retain_graph=True, create_graph=True)
-        # gr_norm_sq = 0.0
-        # for gr in grads:
-        #     gr_norm_sq += (gr**2).sum()
-        
-        loss = lm# + 0.001 * gr_norm_sq
+        loss = loss.mean()
 
         # measure accuracy and record loss
         ctx.errors.add(output.data, target.data)
@@ -373,7 +387,6 @@ def train(train_loader, model, criterion, optimizer, epoch, opt, complete_output
         ctx.global_iters += 1
         input = input.cuda(opt['g'])
         target = target.cuda(opt['g'])
-        ctx.idx = idx
         stats, S_prob = runner(input, target, model, criterion, optimizer, idx, complete_outputs)
         ctx.S_prob = S_prob
         if opt['sampler'] == 'invtunnel' or opt['sampler'] == 'tunnel':
@@ -591,7 +604,7 @@ def main_worker(opt):
     else:
         model = torch.nn.DataParallel(model,
                         device_ids=range(opt['g'], opt['g'] + opt['ng']),
-                        output_device=opt['g']).cuda(opt['g'])
+                        output_device=opt['g']).cuda()
 
     # embed()
 
@@ -604,33 +617,52 @@ def main_worker(opt):
     else:
         criterion = nn.CrossEntropyLoss(reduction='none').cuda(opt['g'])
 
-    if opt['adam']:
-        optimizer = torch.optim.Adam(model.parameters(), opt['lr'],
-                                betas = (0.9,0.99),
-                                weight_decay=opt['wd'])
-    else:
-        optimizer = torch.optim.SGD(model.parameters(), opt['lr'],
-                                    momentum=opt['momentum'],
-                                    nesterov=opt['nesterov'],
-                                    weight_decay=opt['wd'])
-
-    ctx.optimizer = optimizer
-    ctx.model = model
-
     # optionally resume from a checkpoint
     if opt['resume']:
         if os.path.isfile(opt['resume']):
             print("=> loading checkpoint '{}'".format(opt['resume']))
             checkpoint = torch.load(opt['resume'])
-            opt['start_epoch'] = checkpoint['epoch']
+            opt['start_epoch'] = 0
             best_top1 = checkpoint['best_top1']
             model.load_state_dict(checkpoint['state_dict'])
-            optimizer.load_state_dict(checkpoint['optimizer'])
+            #optimizer.load_state_dict(checkpoint['optimizer'])
             print("=> loaded checkpoint '{}' (epoch {})"
                   .format(opt['resume'], checkpoint['epoch']))
         else:
             print("=> no checkpoint found at '{}'".format(opt['resume']))
 
+
+    classifier = model.linear
+    import math
+    for m in model.modules():
+        if isinstance(m, torch.nn.Linear):
+            m.weight.data.normal_(0, math.sqrt(2./m.in_features))
+            m.bias.data.fill_(-np.log(get_num_classes(opt) - 1))
+
+    feats_net_pars = list(model.conv1.parameters()) + list(model.bn1.parameters())
+    feats_net_pars+= list(model.layer1.parameters())
+    feats_net_pars+= list(model.layer2.parameters())
+    feats_net_pars+= list(model.layer3.parameters())
+    feats_net_pars+= list(model.layer4.parameters())
+
+    if opt['adam']:
+        optimizer = torch.optim.Adam(model.parameters(), opt['lr'],
+                                betas = (0.9,0.99),
+                                weight_decay=opt['wd'])
+    else:
+        # optimizer = torch.optim.SGD(model.parameters(), opt['lr'],
+        #                             momentum=opt['momentum'],
+        #                             nesterov=opt['nesterov'],
+        #                             weight_decay=opt['wd'])
+        optimizer = torch.optim.SGD([
+                {'params': feats_net_pars, 'lr': 0.},
+                {'params': classifier.parameters(), 'lr':1e-3}
+            ], lr=opt['lr'], momentum=0.9)
+    
+    ctx.optimizer = optimizer
+    ctx.model = model
+
+    
     cudnn.benchmark = True
 
     # Data loading code
@@ -641,21 +673,21 @@ def main_worker(opt):
     #complete_outputs = torch.ones(train_length).cuda(opt['g'])
     complete_outputs = train_loader.sampler.weights.clone().cuda(opt['g'])
 
-    #Create a list of dictionaries of indeces and losses
-    print('Classes for modified IS')
-    classes = [{} for i in range(10)]
-    for i, (input, target, index) in enumerate(weights_loader):
-        for j, ind in enumerate(index):
-            classes[target[j].item()][ind.item()] = complete_outputs[index[j].item()].item()
+    # # Create a list of dictionaries of indeces and losses
+    # print('Classes for modified IS')
+    # classes = [{} for i in range(10)]
+    # for i, (input, target, index) in enumerate(weights_loader):
+    #     for j, ind in enumerate(index):
+    #         classes[target[j].item()][ind.item()] = complete_outputs[index[j].item()].item()
 
-    ctx.classes = classes
-    cardinality = [len(i)  for i in classes]
+    # ctx.classes = classes
+    # cardinality = [len(i)  for i in classes]
 
-    ctx.medians = torch.zeros_like(complete_outputs).cuda(ctx.opt['g'])
-    ctx.complete_cardinality = torch.zeros_like(complete_outputs).cuda(ctx.opt['g'])
-    for i, cla in enumerate(classes):
-        for ind in cla:
-            ctx.complete_cardinality[ind] = cardinality[i]
+    # ctx.medians = torch.zeros_like(complete_outputs).cuda(ctx.opt['g'])
+    # ctx.complete_cardinality = torch.zeros_like(complete_outputs).cuda(ctx.opt['g'])
+    # for i, cla in enumerate(classes):
+    #     for ind in cla:
+    #         ctx.complete_cardinality[ind] = cardinality[i]
 
 
 
@@ -681,19 +713,19 @@ def main_worker(opt):
     for epoch in range(opt['start_epoch'], opt['epochs']):
         start_t = time.time()
         ctx.epoch = epoch
-        if not opt['adam']:
-            if isinstance(opt['lrs'], str):
-                lrs = np.array(json.loads(opt['lrs']))
-            else:
-                lrs = np.array(opt['lrs'])
-            if opt['lb'] and epoch <= lrs[1,0]:
-                lr = get_lb_warmup(epoch)
-                print(lr)
+        # if not opt['adam']:
+        #     if isinstance(opt['lrs'], str):
+        #         lrs = np.array(json.loads(opt['lrs']))
+        #     else:
+        #         lrs = np.array(opt['lrs'])
+        #     if opt['lb'] and epoch <= lrs[1,0]:
+        #         lr = get_lb_warmup(epoch)
+        #         print(lr)
 
-                for param_group in optimizer.param_groups:
-                    param_group['lr'] = lr
-            else:
-                adjust_learning_rate(epoch)
+        #         for param_group in optimizer.param_groups:
+        #             param_group['lr'] = lr
+        #     else:
+        #         adjust_learning_rate(epoch)
 
         adjust_temperature(epoch, opt)
         # if opt['sampler'] == 'invtunnel' or opt['sampler'] == 'tunnel':
