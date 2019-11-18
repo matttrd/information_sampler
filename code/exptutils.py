@@ -189,7 +189,7 @@ def build_filename(ctx):
 def get_num_classes(opt):
     d = dict(mnist=10, svhn=10, cifar10=10, cinic=10, cifar20=20,
             cifar100=100, imagenet32=1000, imagenet=1000, imagenet_lt=1000, 
-            tinyimagenet64=200, halfmnist=10, places_lt=365)
+            tinyimagenet64=200, halfmnist=10, places_lt=365, inaturalist=1010)
     d['cifar10.1']=10
     if not opt['dataset'] in d:
         assert False, 'Unknown dataset: %s'%opt['dataset']
@@ -199,7 +199,7 @@ def create_and_load_model(opt):
     if 'cifar' in opt['dataset'] or 'cinic' in opt['dataset']:
         import models.cifar_models as models
         model = getattr(models, opt['arch'])(num_classes=get_num_classes(opt))
-    elif 'imagenet' in opt['dataset'] or 'places_lt' in opt['dataset']:
+    elif 'imagenet' in opt['dataset'] or 'places_lt' in opt['dataset'] or 'inaturalist' == opt['dataset']:
         import models.imagenet_models as models
         model = getattr(models, opt['arch'])(num_classes=get_num_classes(opt))
 

@@ -124,6 +124,7 @@ def cfg():
     x_1 =  np.log(10/2)
     beta_0 = 0.1
     beta_1 = beta_0
+    reweight = False
 
 best_top1 = 0
 
@@ -195,42 +196,42 @@ def compute_weights(complete_outputs, outputs, targets, idx, criterion):
             ratio = ctx.opt['ac_scaler'] * ctx.class_count[targets[i]] / ctx.max_class_count
             complete_losses[index] = complete_losses[index] / ratio
 
-    # nrm = temp * complete_losses.max() if ctx.opt['normalizer'] else temp
-    # if ctx.opt['sampler'] == 'tunnel':
-    #     S_prob = torch.exp(-complete_losses / nrm)
-    # else:
-    #     S_prob = 1 - torch.exp(-complete_losses / nrm)
+    nrm = temp * complete_losses.max() if ctx.opt['normalizer'] else temp
+    if ctx.opt['sampler'] == 'tunnel':
+        S_prob = torch.exp(-complete_losses / nrm)
+    else:
+        S_prob = 1 - torch.exp(-complete_losses / nrm)
 
-    classes = ctx.classes
-    # Updating losses in the list of dictionaries
-    for j, ind in enumerate(idx):
-        classes[targets[j].item()][ind.item()] = complete_outputs[ind.item()].item()
+    # classes = ctx.classes
+    # # Updating losses in the list of dictionaries
+    # for j, ind in enumerate(idx):
+    #     classes[targets[j].item()][ind.item()] = complete_outputs[ind.item()].item()
 
-    F_min = (ctx.opt['x_0'] + ctx.opt['x_1'])/ 2 # torch.log(2), torch.log(10/2)
+    # F_min = (ctx.opt['x_0'] + ctx.opt['x_1'])/ 2 # torch.log(2), torch.log(10/2)
 
-    # Compute medians per class
-    median = torch.zeros(10)
-    for class_index in range(len(classes)):
-        losses_median = []
-        for _, los in classes[class_index].items():
-            losses_median.append(los)
-        median[class_index] = torch.median(torch.tensor(losses_median))
+    # # Compute medians per class
+    # median = torch.zeros(10)
+    # for class_index in range(len(classes)):
+    #     losses_median = []
+    #     for _, los in classes[class_index].items():
+    #         losses_median.append(los)
+    #     median[class_index] = torch.median(torch.tensor(losses_median))
 
-    medians = ctx.medians
+    # medians = ctx.medians
     
-    for cla, dict_loss in enumerate(classes):
-        start = time.time()
-        #ct = 0
-        for indeces in dict_loss:
-            medians[indeces] = median[cla]
-            #ct += 1
+    # for cla, dict_loss in enumerate(classes):
+    #     start = time.time()
+    #     #ct = 0
+    #     for indeces in dict_loss:
+    #         medians[indeces] = median[cla]
+    #         #ct += 1
 
-    # print(len(dict_loss) if type(dict_loss) is not float else 1)  
+    # # print(len(dict_loss) if type(dict_loss) is not float else 1)  
     
-    complete_loss_normalized = (complete_losses - medians - torch.tensor(F_min)) / medians
-    J = F(complete_loss_normalized, ctx.opt['x_0'], ctx.opt['x_1'], ctx.opt['beta_0'], ctx.opt['beta_1'])
+    # complete_loss_normalized = (complete_losses - medians - torch.tensor(F_min)) / medians
+    # J = F(complete_loss_normalized, ctx.opt['x_0'], ctx.opt['x_1'], ctx.opt['beta_0'], ctx.opt['beta_1'])
 
-    S_prob = (1- torch.exp(-J)) * medians / ctx.complete_cardinality
+    # S_prob = (1- torch.exp(-J)) * medians / ctx.complete_cardinality
 
     return S_prob
 
@@ -343,12 +344,23 @@ def runner(input, target, model, criterion, optimizer, idx, complete_outputs):
         else:
             new_target = target
 
-        loss = criterion(output, new_target)
+        scaler = 1.
+        if ctx.opt['reweight']:
+            inv_card = 1 / ctx.complete_cardinality[ctx.idx]
+            scaler = (inv_card / torch.sum(inv_card)).float()
+
+        loss = scaler * criterion(output, new_target)
 
         if ctx.opt['forgetting_stats']:
             updating_forgetting_stats(loss, output, target, idx, complete_outputs.shape[0])
 
-        loss = loss.mean()
+        lm = loss.mean()
+        # grads = torch.autograd.grad(lm, model.parameters(), retain_graph=True, create_graph=True)
+        # gr_norm_sq = 0.0
+        # for gr in grads:
+        #     gr_norm_sq += (gr**2).sum()
+        
+        loss = lm# + 0.001 * gr_norm_sq
 
         # measure accuracy and record loss
         ctx.errors.add(output.data, target.data)
@@ -388,6 +400,7 @@ def train(train_loader, model, criterion, optimizer, epoch, opt, complete_output
         ctx.global_iters += 1
         input = input.cuda(opt['g'])
         target = target.cuda(opt['g'])
+        ctx.idx = idx
         stats, S_prob = runner(input, target, model, criterion, optimizer, idx, complete_outputs)
         ctx.S_prob = S_prob
         if opt['sampler'] == 'invtunnel' or opt['sampler'] == 'tunnel':
@@ -605,7 +618,7 @@ def main_worker(opt):
     else:
         model = torch.nn.DataParallel(model,
                         device_ids=range(opt['g'], opt['g'] + opt['ng']),
-                        output_device=opt['g']).cuda()
+                        output_device=opt['g']).cuda(opt['g'])
 
     # embed()
 
@@ -655,7 +668,7 @@ def main_worker(opt):
     #complete_outputs = torch.ones(train_length).cuda(opt['g'])
     complete_outputs = train_loader.sampler.weights.clone().cuda(opt['g'])
 
-    # Create a list of dictionaries of indeces and losses
+    #Create a list of dictionaries of indeces and losses
     print('Classes for modified IS')
     classes = [{} for i in range(10)]
     for i, (input, target, index) in enumerate(weights_loader):

@@ -366,14 +366,15 @@ def train(train_loader, model, criterion, optimizer, epoch, opt, complete_output
         try:
             input, target, idx = next(iters)
         except StopIteration:
-            iters = iter(ctx.plain_train_loader)
+            iters = iter(ctx.train_loader)
             input, target, idx = next(iters)
 
         input = input.cuda(opt['g'])
         target = target.cuda(opt['g'])
 
         _, feats = model(input)
-        runner_G(feats.detach(), target, model.linear, criterion, ctx.optimizerG)
+        classifier = model.linear if ctx.opt['dataset'] == 'cifar10' else model.fc
+        runner_G(feats.detach(), target, classifier, criterion, ctx.optimizerG)
 
         
         if opt['sampler'] == 'invtunnel' or opt['sampler'] == 'tunnel':
@@ -593,7 +594,7 @@ def main_worker(opt):
     else:
         criterion = nn.CrossEntropyLoss(reduction='none').cuda(opt['g'])
 
-    classifier = model.linear
+    classifier = model.linear if ctx.opt['dataset'] == 'cifar10' else model.fc
     feats_net_pars = list(model.conv1.parameters()) + list(model.bn1.parameters())
     feats_net_pars+= list(model.layer1.parameters())
     feats_net_pars+= list(model.layer2.parameters())
@@ -612,10 +613,10 @@ def main_worker(opt):
                                     momentum=opt['momentum'],
                                     nesterov=opt['nesterov'],
                                     weight_decay=opt['wd'])
-        optimizerG = torch.optim.SGD(classifier.parameters(), opt['lr'],
+        optimizerG = torch.optim.SGD(classifier.parameters(), 1e-3,
                                     momentum=opt['momentum'],
                                     nesterov=opt['nesterov'],
-                                    weight_decay=opt['wd'])
+                                    weight_decay=0.)
 
     ctx.optimizer = optimizer
     ctx.optimizerG = optimizerG
@@ -638,7 +639,7 @@ def main_worker(opt):
     cudnn.benchmark = True
 
     # Data loading code
-    opt['b'] = 256
+    opt['b'] = 128
     train_loader, clean_train_loader, val_loader, weights_loader, train_length = load_data(opt=opt)
     ctx.train_loader = train_loader
     opt1 = opt.copy()

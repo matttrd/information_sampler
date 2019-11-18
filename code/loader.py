@@ -19,6 +19,7 @@ from tqdm import tqdm
 from utils import *
 from exptutils import logical_index
 from IPython import embed
+import json
 
 data_ingredient = Ingredient('dataset')
 
@@ -112,6 +113,37 @@ def corrupt_labels(train_labels, corrupt_prob, num_classes):
     #return labels, mask
 
 
+class Reduced_Dataset(Dataset):
+    def __init__(self, root, txt, indices, transform=None):
+        self.img_path = []
+        self.labels = []
+        self.transform = transform
+        with open(txt) as f:
+            for img_id, line in enumerate(f):
+                if indices is not None:
+                    if img_id in indices:
+                        self.img_path.append(os.path.join(root, line.split()[0]))
+                        self.labels.append(int(line.split()[1]))
+                else:
+                    self.img_path.append(os.path.join(root, line.split()[0]))
+                    self.labels.append(int(line.split()[1]))
+
+    def __len__(self):
+        return len(self.labels)
+        
+    def __getitem__(self, index):
+        path = self.img_path[index]
+        target = self.labels[index]
+        
+        with open(path, 'rb') as f:
+            sample = Image.open(f).convert('RGB')
+        
+        if self.transform is not None:
+            data = self.transform(sample)
+
+        return data, target, index
+
+
 class LT_Dataset(Dataset):
     def __init__(self, root, txt, transform=None):
         self.img_path = []
@@ -161,6 +193,106 @@ class CelebaDataset(Dataset):
         target = self.y[index]
 
         return data, target, index
+
+def load_taxonomy(ann_data, tax_levels, classes):
+    # loads the taxonomy data and converts to ints
+    taxonomy = {}
+
+    if 'categories' in ann_data.keys():
+        num_classes = len(ann_data['categories'])
+        for tt in tax_levels:
+            tax_data = [aa[tt] for aa in ann_data['categories']]
+            _, tax_id = np.unique(tax_data, return_inverse=True)
+            taxonomy[tt] = dict(zip(range(num_classes), list(tax_id)))
+    else:
+        # set up dummy data
+        for tt in tax_levels:
+            taxonomy[tt] = dict(zip([0], [0]))
+
+    # create a dictionary of lists containing taxonomic labels
+    classes_taxonomic = {}
+    for cc in np.unique(classes):
+        tax_ids = [0]*len(tax_levels)
+        for ii, tt in enumerate(tax_levels):
+            tax_ids[ii] = taxonomy[tt][cc]
+        classes_taxonomic[cc] = tax_ids
+
+    return taxonomy, classes_taxonomic
+
+def default_loader(path):
+    return Image.open(path).convert('RGB')
+
+class INAT(Dataset):
+    def __init__(self, root, ann_file, transform):
+
+        # load annotations
+        print('Loading annotations from: ' + os.path.basename(ann_file))
+        with open(ann_file) as data_file:
+            ann_data = json.load(data_file)
+
+        # set up the filenames and annotations
+        self.imgs = [aa['file_name'] for aa in ann_data['images']]
+        self.ids = [aa['id'] for aa in ann_data['images']]
+
+        # if we dont have class labels set them to '0'
+        if 'annotations' in ann_data.keys():
+            self.classes = [aa['category_id'] for aa in ann_data['annotations']]
+        else:
+            self.classes = [0]*len(self.imgs)
+
+        # load taxonomy
+        self.tax_levels = ['id', 'genus', 'family', 'order', 'class', 'phylum', 'kingdom']
+                           #8142, 4412,    1120,     273,     57,      25,       6
+        self.taxonomy, self.classes_taxonomic = load_taxonomy(ann_data, self.tax_levels, self.classes)
+
+        # # print out some stats
+        # print '\t' + str(len(self.imgs)) + ' images'
+        # print '\t' + str(len(set(self.classes))) + ' classes'
+
+        self.root = root
+        # self.is_train = is_train
+        self.loader = default_loader
+        self.transform = transform
+        # augmentation params
+        # self.im_size = [299, 299]  # can change this to train on higher res
+        # self.mu_data = [0.485, 0.456, 0.406]
+        # self.std_data = [0.229, 0.224, 0.225]
+        # self.brightness = 0.4
+        # self.contrast = 0.4
+        # self.saturation = 0.4
+        # self.hue = 0.25
+
+        # # augmentations
+        # self.center_crop = transforms.CenterCrop((self.im_size[0], self.im_size[1]))
+        # self.scale_aug = transforms.RandomResizedCrop(size=self.im_size[0])
+        # self.flip_aug = transforms.RandomHorizontalFlip()
+        # self.color_aug = transforms.ColorJitter(self.brightness, self.contrast, self.saturation, self.hue)
+        # self.tensor_aug = transforms.ToTensor()
+        # self.norm_aug = transforms.Normalize(mean=self.mu_data, std=self.std_data)
+
+    def __getitem__(self, index):
+        path = self.root + self.imgs[index]
+        im_id = self.ids[index]
+        img = self.loader(path)
+        species_id = self.classes[index]
+        tax_ids = self.classes_taxonomic[species_id]
+
+        # if self.is_train:
+        #     img = self.scale_aug(img)
+        #     img = self.flip_aug(img)
+        #     img = self.color_aug(img)
+        # else:
+        #     img = self.center_crop(img)
+
+        # img = self.tensor_aug(img)
+        # img = self.norm_aug(img)
+        if self.transform is not None:
+            img = self.transform(img)
+
+        return img, species_id, index#, tax_ids
+
+    def __len__(self):
+        return len(self.imgs)
 
 class Lighting(object):
     # Lighting noise (AlexNet - style PCA - based noise)
@@ -285,11 +417,11 @@ def load_data(name, source, shuffle, frac, perc, mode, \
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)) if norm else
                  transforms.Normalize((0, 0, 0), (1, 1, 1))
         ])
-    elif name == 'imagenet_lt' or name=='places_lt':
+    elif name == 'imagenet_lt' or name=='places_lt' or name=='inaturalist':
         transform_train = transforms.Compose([
             transforms.RandomResizedCrop(224),
             transforms.RandomHorizontalFlip(),
-            transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0),
+            transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.25),
             transforms.ToTensor(),
             transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
         ])
@@ -344,23 +476,43 @@ def load_data(name, source, shuffle, frac, perc, mode, \
     #                    transform=transforms_test)
 
     if name == 'imagenet_lt':
-        train_dataset = LT_Dataset(root='/home/matteo/data/imagenet', 
+        root = '/home/matteo/data/imagenet'
+        train_dataset = LT_Dataset(root=root, 
                             txt='./data/ImageNet_LT/ImageNet_LT_train.txt', 
                             transform=transform_train)
         test_dataset = LT_Dataset(root='/home/matteo/data/imagenet', 
                             txt='./data/ImageNet_LT/ImageNet_LT_test.txt', 
                             transform=transform_test)
     elif name == 'places_lt':
-        train_dataset = LT_Dataset(root='/home/matteo/data/places365_standard', 
+        root = '/home/matteo/data/places365_standard'
+        train_dataset = LT_Dataset(root=root, 
                             txt='./data/Places_LT/Places_LT_train.txt', 
                             transform=transform_train)
         test_dataset = LT_Dataset(root='/home/matteo/data/places365_standard', 
                             txt='./data/Places_LT/Places_LT_test.txt', 
                             transform=transform_test)
 
-    elif name in ['imagenet', 'cifar10', 'cinic','cifar100', 'mnist', 'cifar10.1', 'tinyimagenet64']:
+    elif name == 'inaturalist':
+        root = '/home/matteo/data/inaturalist/'
+        train_dataset = INAT(root=root, 
+                             ann_file='/home/matteo/data/inaturalist/train2019.json',
+                             transform=transform_train)
+        test_dataset = INAT(root='/home/matteo/data/inaturalist/', 
+                             ann_file='/home/matteo/data/inaturalist/val2019.json',
+                             transform=transform_test)
+
+    elif name in ['imagenet', 'cifar10','cifar100', 'mnist', 'cifar10.1', 'tinyimagenet64']:
         train_dataset = MyDataset(name, source, train=True, download=True,
                         transform=transform_train)    
+        test_dataset = MyDataset(name, source, train=False, download=True,
+                        transform=transform_test)
+    elif name in ['cinic']:
+        root = '/home/matteo/data/CINIC/'
+        train_dataset = Reduced_Dataset(root=root, 
+                            txt='./data/CINIC/CINIC_train.txt', indices=None,
+                            transform=transform_train)
+        # train_dataset = MyDataset(name, source, train=True, download=True,
+        #                 transform=transform_train)
         test_dataset = MyDataset(name, source, train=False, download=True,
                         transform=transform_test)
     elif name == 'celeba':
@@ -377,7 +529,6 @@ def load_data(name, source, shuffle, frac, perc, mode, \
 
     train_length = len(train_dataset)
     test_length = len(test_dataset)
-
     indices = np.arange(0,train_length)
     num_classes = get_num_classes(opt)
     if perc > 0:
@@ -414,12 +565,16 @@ def load_data(name, source, shuffle, frac, perc, mode, \
         mask = np.ones(train_length, dtype=bool)
         mask[idx] = False
         indices = indices[mask]
-        # train_dataset = Subset(train_dataset, indices)
-        train_dataset.data.data = train_dataset.data.data[indices,:,:,:]
-        train_dataset.data.targets = [train_dataset.data.targets[k] for k in list(indices)]
-        train_length = len(train_dataset)
-        print('New Dataset length is ', train_length)
 
+        if 'cifar' in name:
+            train_dataset.data.data = train_dataset.data.data[indices,:,:,:]
+            train_dataset.data.targets = [train_dataset.data.targets[k] for k in list(indices)]
+            print('New Dataset length is ', train_length)
+        else:
+            train_dataset = Reduced_Dataset(root=root, 
+                            txt='./data/CINIC/CINIC_train.txt', indices=indices,
+                            transform=transform_train)
+        train_length = len(train_dataset)
 
     if opt['corr_labels'] > 0:
         corr_labels, indices = corrupt_labels(train_dataset.data.targets, opt['corr_labels'], num_classes)

@@ -225,16 +225,16 @@ class ResNet(nn.Module):
         x = self.layer3(x)
         x = self.layer4(x)
 
-        if self.use_modulatedatt:
-            x, feature_maps = self.modulatedatt(x)
-        else:
-            feature_maps = None
+        # if self.use_modulatedatt:
+        #     x, feature_maps = self.modulatedatt(x)
+        # else:
+        #     feature_maps = None
 
         x = self.avgpool(x)
         x = x.view(x.size(0), -1)
-        x = self.fc(x)
+        out = self.fc(x)
 
-        return x, feature_maps
+        return out, x
 
 
 def resnet10(num_classes=1000, use_att=False):

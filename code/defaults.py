@@ -17,11 +17,11 @@ TRAINING_DEFAULTS = {
         "lrs": '[[0,0.1],[60,0.02],[120,0.004],[160,0.0008]]'
     },
     'cinic': {
-        "epochs": 150,
+        "epochs": 180,
         #"b": 128,
         "save_epochs" : SAVE_EPOCHS,
         "wd":5e-4,
-        "lrs": '[[0,0.1],[50,0.01],[100,0.001]]'
+        "lrs": '[[0,0.1],[50,0.01],[100,0.001],[150,0.0001]]'
     },
     'imagenet': {
         "epochs": 350,
@@ -35,6 +35,13 @@ TRAINING_DEFAULTS = {
         #"b": 256,
         "save_epochs" : SAVE_EPOCHS,
         "wd": 5e-4,
+         #"lrs": '[[0,0.1],[50,0.01],[100,0.001]]'
+    },
+    'inaturalist': {
+        #"epochs": 150,
+        #"b": 256,
+        "save_epochs" : SAVE_EPOCHS,
+        "wd": 1e-4,
          #"lrs": '[[0,0.1],[50,0.01],[100,0.001]]'
     },
     'places_lt': {
