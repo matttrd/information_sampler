@@ -435,7 +435,7 @@ def validate(val_loader, train_dataset, model, criterion, opt):
     stats = {'loss': loss, 'top1': top1}
 
     if ctx.opt['dataset'] in ['cifar10', 'cifar100'] and ctx.opt['acc_per_class']:
-    	acc = shot_acc_cifar(preds, targets, train_dataset)
+        acc = shot_acc_cifar(preds, targets, train_dataset)
         ctx.acc_per_class.append(acc)
 
 
