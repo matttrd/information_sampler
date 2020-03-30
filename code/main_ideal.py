@@ -127,6 +127,8 @@ def cfg():
     beta_1 = beta_0
     reweight = False
 
+    save_batch = False
+
 best_top1 = 0
 
 # for some reason, the db must me created in the global scope
@@ -166,47 +168,37 @@ def init(name):
 def cum_abs_diff(cumsum, x_prev, x_new):
     return cumsum + torch.abs(x_prev - x_new)
 
-def compute_weights(complete_outputs, outputs, targets, idx, criterion):
-    output = outputs.detach()
-    for i, index in enumerate(idx):
-        o = output[i].reshape(-1, output.shape[1])
-        if ctx.opt['bce']:
-            new_targets = logical_index(targets, output.shape).float()
-        else:
-            new_targets = targets
+def compute_weights(model, criterion, loader):
+    opt = ctx.opt
+    model.eval()
+    weights = []
 
-        complete_outputs[index] = criterion(o, new_targets[i].unsqueeze(0)).mean()
-
-        ctx.count[index] += 1
-        if ctx.opt['adjust_classes']:
-            ctx.class_count[targets[i]] += 1
-            max_classes = ctx.class_count.max()
-            if max_classes > ctx.max_class_count:
-                ctx.max_class_count = max_classes
-
-    max_ = ctx.count[idx].max()
-    if max_ > ctx.max_count:
-            ctx.max_count = max_
-
-    complete_losses = complete_outputs
-    ncounts = ctx.count / ctx.max_count
     if ctx.opt['dyncount']:
-        temp = ctx.opt['temperature'] * ncounts
+        temp = ctx.opt['temperature'] * ctx.ncounts
     else:
         temp = ctx.opt['temperature']
 
-    if ctx.opt['adjust_classes']:
-        for i, index in enumerate(idx):
-            ratio = ctx.opt['ac_scaler'] * ctx.class_count[targets[i]] / ctx.max_class_count
-            complete_losses[index] = complete_losses[index] / ratio
+    with torch.no_grad():
+        for batch_idx, (data, target, idx) in enumerate(loader):
+            data, target = data.cuda(opt['g']), target.cuda(opt['g'])
+            output, _ = model(data)
 
-    nrm = temp * complete_losses.max() if ctx.opt['normalizer'] else temp
-    if ctx.opt['sampler'] == 'tunnel':
-        S_prob = torch.exp(-complete_losses / nrm)
-    else:
-        S_prob = 1 - torch.exp(-complete_losses / nrm)
+            if ctx.opt['bce']:
+                new_target = logical_index(target, output.shape).float()
+            else:
+                new_target = target
 
-    return S_prob
+            loss = criterion(output, target)
+            if ctx.opt['sampler'] == 'tunnel':
+                w = torch.exp(-loss / temp)
+            else:
+                w = 1 - torch.exp(-loss / temp) 
+
+            weights.append(w)
+        weights = torch.cat(weights)
+    model.train()
+        
+    return weights.cpu()
 
 def F(loss, x_0, x_1, beta_0, beta_1):
     return torch.exp((loss - x_0) / beta_0) +  torch.exp(-(loss - x_1)/ beta_1)
@@ -306,7 +298,7 @@ def updating_forgetting_stats(loss, output, target, idx, len_dataset):
 
 
 @batch_hook(ctx, mode='train')
-def runner(input, target, model, criterion, optimizer, idx, complete_outputs):
+def runner(input, target, model, criterion, optimizer, idx, complete_outputs, weights_loader):
     # compute output
         # embed()
         output, _ = model(input)
@@ -342,19 +334,7 @@ def runner(input, target, model, criterion, optimizer, idx, complete_outputs):
         # compute gradient and do SGD step
         optimizer.zero_grad()
         loss.backward()
-
         optimizer.step()
-
-        grad = []
-        for i, param in enumerate(model.parameters()):
-            grad.append(param.grad.data.reshape(-1,).cpu())
-
-        grad = torch.cat(grad)
-        if ctx.i > 0:
-            gs = 1 - torch.dot(ctx.old_grad, grad) / (torch.norm(ctx.old_grad) * torch.norm(grad))
-            ctx.cosine_similarity_grads.append(gs.item())
-        ctx.old_grad = grad
-
         avg_stats = {'loss': ctx.losses.value()[0],
                      'top1': ctx.errors.value()[0]}
         # batch_stats = {'loss': loss.item(),
@@ -363,13 +343,24 @@ def runner(input, target, model, criterion, optimizer, idx, complete_outputs):
 
         # ctx.metrics.batch = stats
         ctx.metrics['avg'] = avg_stats
-        S_prob = compute_weights(complete_outputs, output, target, idx, criterion)
+
+        output = output.detach()
+        for i, index in enumerate(idx):
+            ctx.count[index] += 1
+
+        max_ = ctx.count[idx].max()
+        if max_ > ctx.max_count:
+                ctx.max_count = max_
+
+        ctx.ncounts = ctx.count / ctx.max_count
+
+        S_prob = compute_weights(model, criterion, weights_loader)
         avg_stats['top1'] = (100 - avg_stats['top1']) / 100.
 
         return avg_stats, S_prob
 
 @epoch_hook(ctx, mode='train')
-def train(train_loader, model, criterion, optimizer, epoch, opt, complete_outputs):
+def train(train_loader, model, criterion, optimizer, epoch, opt, complete_outputs, weights_loader):
     data_time = TimeMeter(unit=1)
     ctx.losses = AverageValueMeter()
     ctx.errors = ClassErrorMeter(topk=[1,5])
@@ -381,12 +372,14 @@ def train(train_loader, model, criterion, optimizer, epoch, opt, complete_output
     # end = time.time()
     for i, (input, target, idx) in enumerate(train_loader):
         # tmp var (for convenience)
+        if ctx.opt['save_batch'] and ctx.epoch in ctx.opt['save_counts_list']:
+        	ctx.batch_composition[ctx.epoch].append(target.numpy())
         ctx.i = i
         ctx.global_iters += 1
         input = input.cuda(opt['g'])
         target = target.cuda(opt['g'])
         ctx.idx = idx
-        stats, S_prob = runner(input, target, model, criterion, optimizer, idx, complete_outputs)
+        stats, S_prob = runner(input, target, model, criterion, optimizer, idx, complete_outputs, weights_loader)
         ctx.S_prob = S_prob
         if opt['sampler'] == 'invtunnel' or opt['sampler'] == 'tunnel':
             train_loader.sampler.weights = ctx.S_prob
@@ -485,7 +478,7 @@ def train_clean(loader, train_dataset, model, criterion, opt):
                 new_target = target
 
             loss = criterion(output, new_target).mean()
-            S_prob = compute_weights(ctx.complete_outputs, output, target, idx, criterion)
+            S_prob = compute_weights(model, criterion, weights_loader)
             if opt['sampler'] == 'invtunnel' or opt['sampler'] == 'tunnel':
                 ctx.train_loader.sampler.weights = S_prob
 
@@ -597,7 +590,6 @@ def get_lb_warmup(e):
 
 @train_hook(ctx)
 def main_worker(opt):
-    ctx.cosine_similarity_grads = []
     global best_top1
     model = create_and_load_model(ctx.opt)
     if opt['ng'] == 0:
@@ -656,21 +648,21 @@ def main_worker(opt):
     #complete_outputs = torch.ones(train_length).cuda(opt['g'])
     complete_outputs = train_loader.sampler.weights.clone().cuda(opt['g'])
 
-    # #Create a list of dictionaries of indeces and losses
-    # print('Classes for modified IS')
-    # classes = [{} for i in range(10)]
-    # for i, (input, target, index) in enumerate(weights_loader):
-    #     for j, ind in enumerate(index):
-    #         classes[target[j].item()][ind.item()] = complete_outputs[index[j].item()].item()
+    #Create a list of dictionaries of indeces and losses
+    print('Classes for modified IS')
+    classes = [{} for i in range(10)]
+    for i, (input, target, index) in enumerate(weights_loader):
+        for j, ind in enumerate(index):
+            classes[target[j].item()][ind.item()] = complete_outputs[index[j].item()].item()
 
-    # ctx.classes = classes
-    # cardinality = [len(i)  for i in classes]
+    ctx.classes = classes
+    cardinality = [len(i)  for i in classes]
 
-    # ctx.medians = torch.zeros_like(complete_outputs).cuda(ctx.opt['g'])
-    # ctx.complete_cardinality = torch.zeros_like(complete_outputs).cuda(ctx.opt['g'])
-    # for i, cla in enumerate(classes):
-    #     for ind in cla:
-    #         ctx.complete_cardinality[ind] = cardinality[i]
+    ctx.medians = torch.zeros_like(complete_outputs).cuda(ctx.opt['g'])
+    ctx.complete_cardinality = torch.zeros_like(complete_outputs).cuda(ctx.opt['g'])
+    for i, cla in enumerate(classes):
+        for ind in cla:
+            ctx.complete_cardinality[ind] = cardinality[i]
 
 
 
@@ -691,6 +683,11 @@ def main_worker(opt):
         return
 
         model.train()
+
+    if opt['save_batch']:
+    	ctx.batch_composition = {}
+    	for ep in opt['save_counts_list']:
+    		ctx.batch_composition[ep] = []
 
     import time
     for epoch in range(opt['start_epoch'], opt['epochs']):
@@ -720,7 +717,7 @@ def main_worker(opt):
         #   _ = compute_weights_stats(model, criterion, weights_loader)
 
         # train for one epoch
-        train(train_loader, model, criterion, optimizer, epoch, opt, complete_outputs)
+        train(train_loader, model, criterion, optimizer, epoch, opt, complete_outputs, weights_loader)
         # filter out samples too hard to fit
 
         # evaluate on validation set
@@ -779,8 +776,11 @@ def main():
         with open(os.path.join(acc_dir, 'accuracies.pkl'), 'wb') as handle:
             pkl.dump(np.array(ctx.acc_per_class), handle, protocol=pkl.HIGHEST_PROTOCOL)
 
-    with open(os.path.join(acc_dir, 'cosine_similarity_grads.pkl'), 'wb') as handle:
-            pkl.dump(ctx.cosine_similarity_grads, handle, protocol=pkl.HIGHEST_PROTOCOL)
+    if ctx.opt['save_batch']:
+        batch_dir = os.path.join(ctx.opt.get('o'), ctx.opt['exp'], ctx.opt['filename'], 'batch_composition')
+        os.makedirs(batch_dir, exist_ok=True)
+        with open(os.path.join(batch_dir, 'batch_comp.pkl'), 'wb') as handle:
+            pkl.dump(ctx.batch_composition, handle, protocol=pkl.HIGHEST_PROTOCOL)
 
     if ctx.opt['pilot']:
         # we need the array of sorted indexes in the form [easy --> hard]
