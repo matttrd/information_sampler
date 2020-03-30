@@ -144,31 +144,6 @@ class Reduced_Dataset(Dataset):
         return data, target, index
 
 
-class LT_Dataset(Dataset):
-    def __init__(self, root, txt, transform=None):
-        self.img_path = []
-        self.labels = []
-        self.transform = transform
-        with open(txt) as f:
-            for line in f:
-                self.img_path.append(os.path.join(root, line.split()[0]))
-                self.labels.append(int(line.split()[1]))
-        
-    def __len__(self):
-        return len(self.labels)
-        
-    def __getitem__(self, index):
-        path = self.img_path[index]
-        target = self.labels[index]
-        
-        with open(path, 'rb') as f:
-            sample = Image.open(f).convert('RGB')
-        
-        if self.transform is not None:
-            data = self.transform(sample)
-
-        return data, target, index
-
 class CelebaDataset(Dataset):
     """Custom Dataset for loading CelebA face images"""
 
@@ -253,22 +228,6 @@ class INAT(Dataset):
         # self.is_train = is_train
         self.loader = default_loader
         self.transform = transform
-        # augmentation params
-        # self.im_size = [299, 299]  # can change this to train on higher res
-        # self.mu_data = [0.485, 0.456, 0.406]
-        # self.std_data = [0.229, 0.224, 0.225]
-        # self.brightness = 0.4
-        # self.contrast = 0.4
-        # self.saturation = 0.4
-        # self.hue = 0.25
-
-        # # augmentations
-        # self.center_crop = transforms.CenterCrop((self.im_size[0], self.im_size[1]))
-        # self.scale_aug = transforms.RandomResizedCrop(size=self.im_size[0])
-        # self.flip_aug = transforms.RandomHorizontalFlip()
-        # self.color_aug = transforms.ColorJitter(self.brightness, self.contrast, self.saturation, self.hue)
-        # self.tensor_aug = transforms.ToTensor()
-        # self.norm_aug = transforms.Normalize(mean=self.mu_data, std=self.std_data)
 
     def __getitem__(self, index):
         path = self.root + self.imgs[index]
@@ -277,15 +236,6 @@ class INAT(Dataset):
         species_id = self.classes[index]
         tax_ids = self.classes_taxonomic[species_id]
 
-        # if self.is_train:
-        #     img = self.scale_aug(img)
-        #     img = self.flip_aug(img)
-        #     img = self.color_aug(img)
-        # else:
-        #     img = self.center_crop(img)
-
-        # img = self.tensor_aug(img)
-        # img = self.norm_aug(img)
         if self.transform is not None:
             img = self.transform(img)
 
@@ -533,7 +483,7 @@ def load_data(name, source, shuffle, frac, perc, mode, \
     num_classes = get_num_classes(opt)
     if perc > 0:
         print('Dataset reduction of ', perc)
-        if mode in [0, 1, 2]:
+        if mode in [0, 1, 2, 6]:
             # remove according to the input weights
             fn = pilot_fn = '_'.join(('pilot_', name, pilot_arch, pilot_samp, str(opt['temperature'])))
             #fn = pilot_fn = 'pilot_' + name + '_' + pilot_arch + '_' + pilot_samp
@@ -547,6 +497,10 @@ def load_data(name, source, shuffle, frac, perc, mode, \
             elif mode == 2:
                 sd_idx = np.random.permutation(sd_idx)
                 idx = sd_idx[:int(perc * train_length)]
+            elif mode == 6:
+                halfway = len(sd_idx) // 2
+                idx = sd_idx[halfway - int(perc/2 * train_length):halfway + int(perc/2 * train_length)]
+
         elif mode in [3, 4, 5]:
             # remove according to the clustering of input weights dynamics
             fn = pilot_fn = 'clustering_pilot_' + name + '_' + pilot_arch + '_' + pilot_samp
@@ -562,6 +516,7 @@ def load_data(name, source, shuffle, frac, perc, mode, \
                 idx = get_clustering_indices_to_remove(weights_all_epochs, centroids, assignments, perc, mode, opt['seed'])
         else:
             raise(ValueError('Valid mode values: 0,1,2'))
+        
         mask = np.ones(train_length, dtype=bool)
         mask[idx] = False
         indices = indices[mask]

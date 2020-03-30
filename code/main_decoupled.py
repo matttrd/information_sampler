@@ -26,6 +26,7 @@ from utils_lt import shot_acc, shot_acc_cifar
 from IPython import embed
 import matplotlib.pyplot as plt
 import defaults
+from scipy import interpolate
 
 # local thread used as a global context
 ctx = threading.local()
@@ -117,6 +118,8 @@ def cfg():
     cifar_imb_factor = None
     focal_loss = False
     gamma = 1.
+    lb = False # linear warm up
+
 best_top1 = 0
 
 # for some reason, the db must me created in the global scope
@@ -373,7 +376,11 @@ def train(train_loader, model, criterion, optimizer, epoch, opt, complete_output
         target = target.cuda(opt['g'])
 
         _, feats = model(input)
-        classifier = model.linear if ctx.opt['dataset'] == 'cifar10' else model.fc
+        if opt['ng'] > 1:
+            module = model.module
+        else:
+            module = model
+        classifier = module.linear if ctx.opt['dataset'] == 'cifar10' else module.fc
         runner_G(feats.detach(), target, classifier, criterion, ctx.optimizerG)
 
         
@@ -571,6 +578,15 @@ def adjust_temperature(epoch, opt):
     return
 
 
+def get_lb_warmup(e):
+    if isinstance(ctx.opt['lrs'], str):
+        lrs = np.array(json.loads(ctx.opt['lrs']))
+    else:
+        lrs = np.array(ctx.opt['lrs'])
+    interp = interpolate.interp1d(lrs[:,0], lrs[:,1], kind='linear',fill_value='extrapolate')
+    lr = np.asscalar(interp(e))
+    return lr
+
 @train_hook(ctx)
 def main_worker(opt):
     global best_top1
@@ -594,12 +610,16 @@ def main_worker(opt):
     else:
         criterion = nn.CrossEntropyLoss(reduction='none').cuda(opt['g'])
 
-    classifier = model.linear if ctx.opt['dataset'] == 'cifar10' else model.fc
-    feats_net_pars = list(model.conv1.parameters()) + list(model.bn1.parameters())
-    feats_net_pars+= list(model.layer1.parameters())
-    feats_net_pars+= list(model.layer2.parameters())
-    feats_net_pars+= list(model.layer3.parameters())
-    feats_net_pars+= list(model.layer4.parameters())
+    if opt['ng'] > 1:
+        module = model.module
+    else:
+        module = model
+    classifier = module.linear if ctx.opt['dataset'] == 'cifar10' else module.fc
+    feats_net_pars = list(module.conv1.parameters()) + list(module.bn1.parameters())
+    feats_net_pars+= list(module.layer1.parameters())
+    feats_net_pars+= list(module.layer2.parameters())
+    feats_net_pars+= list(module.layer3.parameters())
+    feats_net_pars+= list(module.layer4.parameters())
 
     if opt['adam']:
         optimizer = torch.optim.Adam(feats_net_pars, 1e-4,
@@ -613,14 +633,11 @@ def main_worker(opt):
                                     momentum=opt['momentum'],
                                     nesterov=opt['nesterov'],
                                     weight_decay=opt['wd'])
-<<<<<<< HEAD
-        optimizerG = torch.optim.SGD(classifier.parameters(), 1e-3,
-=======
+
         optimizerG = torch.optim.SGD(classifier.parameters(), 1e-4,
->>>>>>> 07d86dab3dbcf4693b09f30ae5eed7c82022652b
                                     momentum=opt['momentum'],
                                     nesterov=opt['nesterov'],
-                                    weight_decay=0.)
+                                    weight_decay=1e-3)
 
     ctx.optimizer = optimizer
     ctx.optimizerG = optimizerG
@@ -670,16 +687,27 @@ def main_worker(opt):
         validate(val_loader, train_loader, model, criterion, opt)
         if opt['use_train_clean']:
             train_clean(clean_train_loader, train_loader, model, criterion, opt)
-        return
+            return
 
-        model.train()
-
+    model.train()
     import time
     for epoch in range(opt['start_epoch'], opt['epochs']):
         start_t = time.time()
         ctx.epoch = epoch
         if not opt['adam']:
-            adjust_learning_rate(epoch)
+            if isinstance(opt['lrs'], str):
+                lrs = np.array(json.loads(opt['lrs']))
+            else:
+                lrs = np.array(opt['lrs'])
+            if opt['lb'] and epoch <= lrs[1,0]:
+                lr = get_lb_warmup(epoch)
+                print(lr)
+
+                for param_group in optimizer.param_groups:
+                    param_group['lr'] = lr
+            else:
+                adjust_learning_rate(epoch)
+
         adjust_temperature(epoch, opt)
         # if opt['sampler'] == 'invtunnel' or opt['sampler'] == 'tunnel':
         #     new_weights = compute_weights_stats(model, criterion, weights_loader)

@@ -205,7 +205,7 @@ def compute_weights(complete_outputs, outputs, targets, idx, criterion):
         S_prob = torch.exp(-complete_losses / nrm)
     else:
         S_prob = 1 - torch.exp(-complete_losses / nrm)
-        
+
     return S_prob
 
 def F(loss, x_0, x_1, beta_0, beta_1):
@@ -342,7 +342,19 @@ def runner(input, target, model, criterion, optimizer, idx, complete_outputs):
         # compute gradient and do SGD step
         optimizer.zero_grad()
         loss.backward()
+
         optimizer.step()
+
+        grad = []
+        for i, param in enumerate(model.parameters()):
+            grad.append(param.grad.data.reshape(-1,).cpu())
+
+        grad = torch.cat(grad)
+        if ctx.i > 0:
+            gs = 1 - torch.dot(ctx.old_grad, grad) / (torch.norm(ctx.old_grad) * torch.norm(grad))
+            ctx.cosine_similarity_grads.append(gs.item())
+        ctx.old_grad = grad
+
         avg_stats = {'loss': ctx.losses.value()[0],
                      'top1': ctx.errors.value()[0]}
         # batch_stats = {'loss': loss.item(),
@@ -583,6 +595,7 @@ def get_lb_warmup(e):
 
 @train_hook(ctx)
 def main_worker(opt):
+    ctx.cosine_similarity_grads = []
     global best_top1
     model = create_and_load_model(ctx.opt)
     if opt['ng'] == 0:
@@ -641,21 +654,21 @@ def main_worker(opt):
     #complete_outputs = torch.ones(train_length).cuda(opt['g'])
     complete_outputs = train_loader.sampler.weights.clone().cuda(opt['g'])
 
-    #Create a list of dictionaries of indeces and losses
-    print('Classes for modified IS')
-    classes = [{} for i in range(10)]
-    for i, (input, target, index) in enumerate(weights_loader):
-        for j, ind in enumerate(index):
-            classes[target[j].item()][ind.item()] = complete_outputs[index[j].item()].item()
+    # #Create a list of dictionaries of indeces and losses
+    # print('Classes for modified IS')
+    # classes = [{} for i in range(10)]
+    # for i, (input, target, index) in enumerate(weights_loader):
+    #     for j, ind in enumerate(index):
+    #         classes[target[j].item()][ind.item()] = complete_outputs[index[j].item()].item()
 
-    ctx.classes = classes
-    cardinality = [len(i)  for i in classes]
+    # ctx.classes = classes
+    # cardinality = [len(i)  for i in classes]
 
-    ctx.medians = torch.zeros_like(complete_outputs).cuda(ctx.opt['g'])
-    ctx.complete_cardinality = torch.zeros_like(complete_outputs).cuda(ctx.opt['g'])
-    for i, cla in enumerate(classes):
-        for ind in cla:
-            ctx.complete_cardinality[ind] = cardinality[i]
+    # ctx.medians = torch.zeros_like(complete_outputs).cuda(ctx.opt['g'])
+    # ctx.complete_cardinality = torch.zeros_like(complete_outputs).cuda(ctx.opt['g'])
+    # for i, cla in enumerate(classes):
+    #     for ind in cla:
+    #         ctx.complete_cardinality[ind] = cardinality[i]
 
 
 
@@ -763,6 +776,9 @@ def main():
         os.makedirs(acc_dir, exist_ok=True)
         with open(os.path.join(acc_dir, 'accuracies.pkl'), 'wb') as handle:
             pkl.dump(np.array(ctx.acc_per_class), handle, protocol=pkl.HIGHEST_PROTOCOL)
+
+    with open(os.path.join(acc_dir, 'cosine_similarity_grads.pkl'), 'wb') as handle:
+            pkl.dump(ctx.cosine_similarity_grads, handle, protocol=pkl.HIGHEST_PROTOCOL)
 
     if ctx.opt['pilot']:
         # we need the array of sorted indexes in the form [easy --> hard]
