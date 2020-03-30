@@ -128,6 +128,7 @@ def cfg():
     reweight = False
 
     save_batch = False
+    lambda_entr = 0.
 
 best_top1 = 0
 
@@ -315,7 +316,17 @@ def runner(input, target, model, criterion, optimizer, idx, complete_outputs, we
             scaler = (inv_card / torch.sum(inv_card)).float()
 
         loss = scaler * criterion(output, new_target)
-
+        if ctx.opt['lambda_entr'] > 0.:
+            idx_entr = logical_index(target, output.shape).bool()
+            prob = torch.softmax(output, dim=1)[idx_entr]
+            neg_entropy = 0.
+            for cl in range(output.shape[1]):
+                prob_cl = torch.softmax(prob[target==cl], dim=0)
+                neg_entropy += (prob_cl * torch.log(prob_cl)).sum()
+            regularization = ctx.opt['lambda_entr'] * neg_entropy / output.shape[0]
+            loss = loss + regularization
+            
+            # print((ctx.opt['lambda_entr'] * neg_entropy / output.shape[0]).item())
         if ctx.opt['forgetting_stats']:
             updating_forgetting_stats(loss, output, target, idx, complete_outputs.shape[0])
 
@@ -330,13 +341,15 @@ def runner(input, target, model, criterion, optimizer, idx, complete_outputs, we
         # measure accuracy and record loss
         ctx.errors.add(output.data, target.data)
         ctx.losses.add(loss.item())
-
+        ctx.regularizations.add(regularization.item())
         # compute gradient and do SGD step
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
         avg_stats = {'loss': ctx.losses.value()[0],
-                     'top1': ctx.errors.value()[0]}
+                     'top1': ctx.errors.value()[0],
+                     'entr': ctx.regularizations.value()[0]
+                     }
         # batch_stats = {'loss': loss.item(),
         #          'top1': ctx.errors.value()[0],
         #          'top5': ctx.errors.value()[1]}
@@ -363,6 +376,7 @@ def runner(input, target, model, criterion, optimizer, idx, complete_outputs, we
 def train(train_loader, model, criterion, optimizer, epoch, opt, complete_outputs, weights_loader):
     data_time = TimeMeter(unit=1)
     ctx.losses = AverageValueMeter()
+    ctx.regularizations = AverageValueMeter()
     ctx.errors = ClassErrorMeter(topk=[1,5])
     n_iters = int(len(train_loader) * opt['wufreq'])
 
@@ -373,7 +387,7 @@ def train(train_loader, model, criterion, optimizer, epoch, opt, complete_output
     for i, (input, target, idx) in enumerate(train_loader):
         # tmp var (for convenience)
         if ctx.opt['save_batch'] and ctx.epoch in ctx.opt['save_counts_list']:
-        	ctx.batch_composition[ctx.epoch].append(target.numpy())
+            ctx.batch_composition[ctx.epoch].append(target.numpy())
         ctx.i = i
         ctx.global_iters += 1
         input = input.cuda(opt['g'])
@@ -685,9 +699,9 @@ def main_worker(opt):
         model.train()
 
     if opt['save_batch']:
-    	ctx.batch_composition = {}
-    	for ep in opt['save_counts_list']:
-    		ctx.batch_composition[ep] = []
+        ctx.batch_composition = {}
+        for ep in opt['save_counts_list']:
+            ctx.batch_composition[ep] = []
 
     import time
     for epoch in range(opt['start_epoch'], opt['epochs']):
