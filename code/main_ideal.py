@@ -341,15 +341,17 @@ def runner(input, target, model, criterion, optimizer, idx, complete_outputs, we
         # measure accuracy and record loss
         ctx.errors.add(output.data, target.data)
         ctx.losses.add(loss.item())
-        ctx.regularizations.add(regularization.item())
+        if ctx.opt['lambda_entr'] > 0.:
+	        ctx.regularizations.add(regularization.item())
         # compute gradient and do SGD step
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
         avg_stats = {'loss': ctx.losses.value()[0],
-                     'top1': ctx.errors.value()[0],
-                     'entr': ctx.regularizations.value()[0]
+                     'top1': ctx.errors.value()[0]
                      }
+        if ctx.opt['lambda_entr'] > 0.:
+        	avg_stats['entr'] = ctx.regularizations.value()[0]
         # batch_stats = {'loss': loss.item(),
         #          'top1': ctx.errors.value()[0],
         #          'top5': ctx.errors.value()[1]}
@@ -376,7 +378,8 @@ def runner(input, target, model, criterion, optimizer, idx, complete_outputs, we
 def train(train_loader, model, criterion, optimizer, epoch, opt, complete_outputs, weights_loader):
     data_time = TimeMeter(unit=1)
     ctx.losses = AverageValueMeter()
-    ctx.regularizations = AverageValueMeter()
+    if ctx.opt['lambda_entr'] > 0.:
+	    ctx.regularizations = AverageValueMeter()
     ctx.errors = ClassErrorMeter(topk=[1,5])
     n_iters = int(len(train_loader) * opt['wufreq'])
 
